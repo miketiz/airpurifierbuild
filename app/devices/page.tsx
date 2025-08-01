@@ -157,6 +157,9 @@ export default function Devices() {
 
     // เพิ่ม state สำหรับการอัพเดตล่าสุด
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    
+    // เพิ่ม state เพื่อระบุว่าเป็นเครื่องใหม่หรือไม่
+    const [isNewDeviceAdded, setIsNewDeviceAdded] = useState<boolean>(false);
 
     const queryClient = useQueryClient();
 
@@ -220,26 +223,41 @@ export default function Devices() {
             setDeviceList(devices);
             setHasDevice(devices.length > 0);
 
+            // ป้องกันการเขียนทับเครื่องที่เลือกแล้ว
             if (devices.length > 0 && !selectedDevice) {
-                setSelectedDevice(devices[0]);
+                const firstDevice = devices[0];
+                setSelectedDevice(firstDevice);
+                
+                // ตั้งสถานะเริ่มต้น แต่ไม่ดึงจาก backend ทันที
+                setPower(false);
+                setMode('off');
             }
         }
     }, [devicesData, selectedDevice]);
 
     // แก้ไข useEffect เพื่ออัพเดต state จากข้อมูลสถานะเครื่อง
     useEffect(() => {
-        if (deviceStatusData?.success && deviceStatusData.data) {
+        // ถ้าเครื่องไม่ทำงาน ให้แสดงสถานะเป็นปิดเลย
+        if (selectedDevice && !selectedDevice.is_active) {
+            setPower(false);
+            setMode('off');
+            return;
+        }
+        
+        if (deviceStatusData?.success && deviceStatusData.data && selectedDevice) {
             const deviceStatus = deviceStatusData.data;
 
             // แปลงค่า mode จากตัวเลขเป็นข้อความ
             const modeNumber = Number(deviceStatus.mode);
             const stringMode = getStringMode(modeNumber);
 
-            // อัพเดตสถานะ UI ตามข้อมูลจริงจาก backend
-            setPower(modeNumber !== 0); // mode 0 คือ off
-            setMode(stringMode);
+            // อัพเดตสถานะ UI ตามข้อมูลจริงจาก backend เฉพาะเมื่อไม่ใช่เครื่องใหม่
+            if (deviceStatus.connection_key === selectedDevice.connection_key && !isNewDeviceAdded) {
+                setPower(modeNumber !== 0); // mode 0 คือ off
+                setMode(stringMode);
+            }
         }
-    }, [deviceStatusData]);
+    }, [deviceStatusData, selectedDevice, isNewDeviceAdded]);
 
     // แก้ไข useEffect เพื่ออัพเดต state จากข้อมูลการตั้งเวลา
     useEffect(() => {
@@ -378,6 +396,12 @@ export default function Devices() {
 
     // แก้ไขฟังก์ชัน handlePowerToggle
     const handlePowerToggle = () => {
+        // ตรวจสอบสถานะเครื่องก่อน
+        if (!selectedDevice?.is_active) {
+            toast.error("ไม่สามารถควบคุมเครื่องได้ เนื่องจากเครื่องไม่ได้เชื่อมต่อ");
+            return;
+        }
+
         // ถ้าปัจจุบันปิดอยู่ ให้เปิดด้วยโหมด medium, ถ้าเปิดอยู่ให้ปิด
         const newMode = !power ? 'medium' : 'off';
         controlDeviceSpeed(newMode);
@@ -386,6 +410,12 @@ export default function Devices() {
 
     // แก้ไขฟังก์ชัน handleModeChange
     const handleModeChange = (newMode: string) => {
+        // ตรวจสอบสถานะเครื่องก่อน
+        if (!selectedDevice?.is_active) {
+            toast.error("ไม่สามารถควบคุมเครื่องได้ เนื่องจากเครื่องไม่ได้เชื่อมต่อ");
+            return;
+        }
+
         if (power) {
             // แปลงค่า sleep เป็น night เพื่อให้ตรงกับ API
             const apiMode = newMode === 'sleep' ? 'night' : newMode;
@@ -415,6 +445,12 @@ export default function Devices() {
     const handleScheduleToggle = async () => {
         if (!selectedDevice || !session?.user?.id) {
             toast.error("กรุณาเลือกอุปกรณ์และเข้าสู่ระบบ");
+            return;
+        }
+
+        // ตรวจสอบสถานะเครื่องก่อน
+        if (!selectedDevice.is_active) {
+            toast.error("ไม่สามารถตั้งเวลาได้ เนื่องจากเครื่องไม่ได้เชื่อมต่อ");
             return;
         }
 
@@ -469,6 +505,61 @@ export default function Devices() {
         if (result.success && result.pin_key) {
             setGeneratedPin(result.pin_key);
             if (showModal) setShowPinModal(true);
+            
+            // รีเฟรชรายการเครื่องหลังจากสร้าง PIN สำเร็จ
+            // เพื่อให้ดึงข้อมูลเครื่องใหม่ที่เพิ่งเพิ่มเข้ามา
+            setTimeout(async () => {
+                try {
+                    const devicesResult = await deviceManagementApi.getDevices(session.user.id);
+                    if (devicesResult.success && devicesResult.data) {
+                        const devices: Device[] = Array.isArray(devicesResult.data)
+                            ? devicesResult.data
+                            : devicesResult.data
+                                ? [devicesResult.data]
+                                : [];
+
+                        setDeviceList(devices);
+                        setHasDevice(devices.length > 0);
+
+                        // ถ้ามีเครื่องใหม่ ให้เลือกเครื่องล่าสุดและตั้งสถานะเป็นปิด
+                        if (devices.length > 0) {
+                            const latestDevice = devices[devices.length - 1]; // เลือกเครื่องล่าสุด
+                            setSelectedDevice(latestDevice);
+                            
+                            // ตั้ง flag ว่าเป็นเครื่องใหม่
+                            setIsNewDeviceAdded(true);
+                            
+                            // ตั้งสถานะเริ่มต้นเป็นปิดเครื่องสำหรับเครื่องใหม่
+                            setPower(false);
+                            setMode('off');
+                            
+                            // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
+                            setPm25(0);
+                            setAqi(0);
+                            setTemperature(0);
+                            setHumidity(0);
+                            setAirQualityStatus("ไม่มีข้อมูล");
+                            setLastUpdated(null);
+                            
+                            // รีเซ็ตการตั้งเวลา
+                            setScheduleEnabled(false);
+                            setStartTime('08:00');
+                            setEndTime('18:00');
+                            setScheduleDays([false, true, true, true, true, true, false]);
+                            setScheduleMode('medium');
+                            
+                            // รีเซ็ต flag หลังจาก 3 วินาที
+                            setTimeout(() => {
+                                setIsNewDeviceAdded(false);
+                            }, 3000);
+                            
+                            console.log('เครื่องใหม่ตั้งสถานะเป็น "ปิด" เรียบร้อย');
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error refreshing device list after PIN generation:", error);
+                }
+            }, 2000); // รอ 2 วินาทีเพื่อให้ backend ประมวลผลเสร็จ
         } else {
             toast.error("ไม่สามารถสร้าง PIN ได้");
         }
@@ -477,10 +568,15 @@ export default function Devices() {
     };
 
     // เพิ่มฟังก์ชันนี้ก่อนฟังก์ชัน handleGeneratePin
-    const fetchDeviceStatus = useCallback(async (connectionKey: string) => {
+    const fetchDeviceStatus = useCallback(async (connectionKey: string, isNewDevice = false) => {
         if (!session?.user?.id) return;
 
         try {
+            // ถ้าเป็นเครื่องใหม่ ให้รอสักครู่เพื่อให้ตั้งค่าเริ่มต้นเสร็จก่อน
+            if (isNewDevice) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
             // ให้รีเฟรชข้อมูล deviceStatus แทนการเรียก API โดยตรง
             await queryClient.invalidateQueries({
                 queryKey: ['deviceStatus', connectionKey, String(session.user.id)]
@@ -522,17 +618,26 @@ export default function Devices() {
                     if (devices.length > 0) {
                         setHasDevice(true);
                         setDeviceList(devices);
-                        setSelectedDevice(devices[0]);
-
-                        // ดึงสถานะของเครื่องแรก
-                        if (devices[0].connection_key) {
-                            try {
-                                fetchDeviceStatus(devices[0].connection_key);
-                            } catch (err) {
-                                console.error("Error fetching device status:", err);
-                                // กรณีเกิดข้อผิดพลาด สถานะเป็น off
-                                setPower(false);
-                                setMode('off');
+                        
+                        // ถ้ายังไม่มีเครื่องที่เลือกอยู่ ให้เลือกเครื่องแรก
+                        if (!selectedDevice) {
+                            const firstDevice = devices[0];
+                            setSelectedDevice(firstDevice);
+                            
+                            // ตั้งสถานะเริ่มต้นเป็นปิดเครื่องสำหรับเครื่องใหม่
+                            setPower(false);
+                            setMode('off');
+                            
+                            // ดึงสถานะของเครื่องจาก backend (แต่ไม่ใช่เครื่องใหม่)
+                            if (firstDevice.connection_key) {
+                                try {
+                                    fetchDeviceStatus(firstDevice.connection_key, false);
+                                } catch (err) {
+                                    console.error("Error fetching device status:", err);
+                                    // กรณีเกิดข้อผิดพลาด สถานะเป็น off
+                                    setPower(false);
+                                    setMode('off');
+                                }
                             }
                         }
                     } else {
@@ -556,7 +661,7 @@ export default function Devices() {
                 // แจ้งเตือนผู้ใช้
                 toast.error("ไม่สามารถโหลดข้อมูลอุปกรณ์ได้ กรุณาลองใหม่อีกครั้ง");
             });
-    }, [session, generatedPin, fetchDeviceStatus]);
+    }, [session, generatedPin, fetchDeviceStatus, selectedDevice]);
 
     const handleUpdateDevice = async () => {
         if (!selectedDevice || !session?.user?.id) {
@@ -604,8 +709,42 @@ export default function Devices() {
                         : [];
 
                 setDeviceList(devices);
-                setSelectedDevice(devices[0] || null);
                 setHasDevice(devices.length > 0);
+                
+                if (devices.length > 0) {
+                    const firstDevice = devices[0];
+                    setSelectedDevice(firstDevice);
+                    
+                    // รีเซ็ตสถานะเป็นปิดเครื่องก่อน
+                    setPower(false);
+                    setMode('off');
+                    
+                    // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
+                    setPm25(0);
+                    setAqi(0);
+                    setTemperature(0);
+                    setHumidity(0);
+                    setAirQualityStatus("ไม่มีข้อมูล");
+                    setLastUpdated(null);
+                    
+                    // ดึงสถานะจริงจาก backend (ไม่ใช่เครื่องใหม่)
+                    if (firstDevice.connection_key) {
+                        setTimeout(() => {
+                            fetchDeviceStatus(firstDevice.connection_key, false);
+                        }, 100);
+                    }
+                } else {
+                    setSelectedDevice(null);
+                    // รีเซ็ตสถานะทั้งหมดเมื่อไม่มีเครื่อง
+                    setPower(false);
+                    setMode('off');
+                    setPm25(0);
+                    setAqi(0);
+                    setTemperature(0);
+                    setHumidity(0);
+                    setAirQualityStatus("ไม่มีข้อมูล");
+                    setLastUpdated(null);
+                }
             }
         } else {
             toast.error("ลบอุปกรณ์ไม่สำเร็จ");
@@ -733,12 +872,14 @@ export default function Devices() {
     // เพิ่ม effect เพื่อตรวจสอบสถานะอัตโนมัติเมื่อเลือกเครื่อง
     useEffect(() => {
         if (selectedDevice?.connection_key && session?.user?.id) {
-            // ดึงสถานะครั้งแรกเมื่อเลือกเครื่อง
-            fetchDeviceStatus(selectedDevice.connection_key);
+            // ดึงสถานะครั้งแรกเมื่อเลือกเครื่อง (ไม่ใช่เครื่องใหม่)
+            fetchDeviceStatus(selectedDevice.connection_key, false);
 
-            // ตั้ง interval ให้ตรวจสอบทุก 30 วินาที
+            // ตั้ง interval ให้ตรวจสอบทุก 30 วินาที (ไม่ใช่เครื่องใหม่)
             const intervalId = setInterval(() => {
-                fetchDeviceStatus(selectedDevice.connection_key);
+                if (selectedDevice?.connection_key) {
+                    fetchDeviceStatus(selectedDevice.connection_key, false);
+                }
             }, 30000); // 30 วินาที
 
             // ล้าง interval เมื่อ unmount หรือเปลี่ยนเครื่อง
@@ -762,6 +903,12 @@ export default function Devices() {
     const handleSetSchedule = async () => {
         if (!selectedDevice || !session?.user?.id) {
             toast.error("กรุณาเลือกอุปกรณ์และเข้าสู่ระบบ");
+            return;
+        }
+
+        // ตรวจสอบสถานะเครื่องก่อน
+        if (!selectedDevice.is_active) {
+            toast.error("ไม่สามารถบันทึกการตั้งเวลาได้ เนื่องจากเครื่องไม่ได้เชื่อมต่อ");
             return;
         }
 
@@ -837,7 +984,30 @@ export default function Devices() {
                                     if (devices.length > 0) {
                                         setHasDevice(true);
                                         setDeviceList(devices);
-                                        setSelectedDevice(devices[0]);
+                                        const newDevice = devices[devices.length - 1]; // เลือกเครื่องใหม่ล่าสุด
+                                        setSelectedDevice(newDevice);
+                                        
+                                        // ตั้งสถานะเริ่มต้นเป็นปิดเครื่องสำหรับเครื่องใหม่
+                                        setPower(false);
+                                        setMode('off');
+                                        
+                                        // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
+                                        setPm25(0);
+                                        setAqi(0);
+                                        setTemperature(0);
+                                        setHumidity(0);
+                                        setAirQualityStatus("ไม่มีข้อมูล");
+                                        setLastUpdated(null);
+                                        
+                                        // รีเซ็ตการตั้งเวลา
+                                        setScheduleEnabled(false);
+                                        setStartTime('08:00');
+                                        setEndTime('18:00');
+                                        setScheduleDays([false, true, true, true, true, true, false]);
+                                        setScheduleMode('medium');
+                                        
+                                        // ไม่ต้องดึงสถานะจาก backend สำหรับเครื่องใหม่
+                                        console.log('เครื่องใหม่จาก EmptyDeviceState ตั้งสถานะเป็น "ปิด" เรียบร้อย');
                                     }
                                 })
                                 .catch(error => {
@@ -864,7 +1034,32 @@ export default function Devices() {
                                             if (found && found.is_active === false) {
                                                 setShowOfflineModal(true);
                                             }
-                                            setSelectedDevice(found ?? null);
+                                            
+                                            // เมื่อเปลี่ยนเครื่อง ให้รีเซ็ตสถานะเป็นสถานะเริ่มต้น
+                                            if (found && found !== selectedDevice) {
+                                                setSelectedDevice(found);
+                                                
+                                                // รีเซ็ตสถานะเป็นปิดเครื่องก่อน
+                                                setPower(false);
+                                                setMode('off');
+                                                
+                                                // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
+                                                setPm25(0);
+                                                setAqi(0);
+                                                setTemperature(0);
+                                                setHumidity(0);
+                                                setAirQualityStatus("ไม่มีข้อมูล");
+                                                setLastUpdated(null);
+                                                
+                                                // ถ้าเครื่องไม่ทำงาน ให้คงสถานะปิดไว้ ไม่ต้องดึงจาก backend
+                                                if (found.is_active && found.connection_key) {
+                                                    setTimeout(() => {
+                                                        fetchDeviceStatus(found.connection_key, false);
+                                                    }, 100); // รอ state update เสร็จก่อน
+                                                }
+                                            } else if (!found) {
+                                                setSelectedDevice(null);
+                                            }
                                         } else {
                                             setSelectedDevice(null);
                                         }
@@ -1048,6 +1243,12 @@ export default function Devices() {
                                     <h2>สถานะการทำงาน</h2>
                                 </div>
                                 <div className="status-content">
+                                    {/* แสดงสถานะการเชื่อมต่อ */}
+                                    <div style={{ display: "flex", justifyContent: "center", marginBottom: "10px" }}>
+                                        <p className={`connection-status ${selectedDevice?.is_active ? 'online' : 'offline'}`}>
+                                            สถานะการเชื่อมต่อ: {selectedDevice?.is_active ? 'เชื่อมต่อแล้ว' : 'ไม่ได้เชื่อมต่อ'}
+                                        </p>
+                                    </div>
                                     <div style={{ display: "flex", justifyContent: "center" }}>
                                         <p
                                             className={
@@ -1063,14 +1264,30 @@ export default function Devices() {
                                             }
                                         </p>
                                     </div>
+                                    {/* แสดงข้อความเตือนเมื่อเครื่องไม่ทำงาน */}
+                                    {!selectedDevice?.is_active && (
+                                        <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
+                                            <p className="warning-message" style={{ 
+                                                color: '#ff4d4f', 
+                                                fontSize: '14px', 
+                                                textAlign: 'center',
+                                                padding: '8px 16px',
+                                                backgroundColor: '#fff2f0',
+                                                borderRadius: '6px',
+                                                border: '1px solid #ffccc7'
+                                            }}>
+                                                ⚠️ ไม่สามารถควบคุมเครื่องได้ เนื่องจากเครื่องไม่ได้เชื่อมต่อ
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="device-controls">
                                 <button
-                                    className={`control-btn power-btn ${power ? 'active' : ''}`}
+                                    className={`control-btn power-btn ${power ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={handlePowerToggle}
-                                    disabled={isControlling}
+                                    disabled={isControlling || !selectedDevice?.is_active}
                                 >
                                     {isControlling ? (
                                         <span className="loading-spinner-small"></span>
@@ -1080,37 +1297,37 @@ export default function Devices() {
                                     <span>{power ? 'ปิด' : 'เปิด'}</span>
                                 </button>
                                 <button
-                                    className={`control-btn ${mode === 'high' ? 'active' : ''}`}
+                                    className={`control-btn ${mode === 'high' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={() => handleModeChange('high')}
-                                    disabled={!power || isControlling}
+                                    disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
                                     <Gauge size={24} /><span>แรง</span>
                                 </button>
                                 <button
-                                    className={`control-btn ${mode === 'medium' ? 'active' : ''}`}
+                                    className={`control-btn ${mode === 'medium' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={() => handleModeChange('medium')}
-                                    disabled={!power || isControlling}
+                                    disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
                                     <Gauge size={24} /><span>ปานกลาง</span>
                                 </button>
                                 <button
-                                    className={`control-btn ${mode === 'low' ? 'active' : ''}`}
+                                    className={`control-btn ${mode === 'low' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={() => handleModeChange('low')}
-                                    disabled={!power || isControlling}
+                                    disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
                                     <Gauge size={24} /><span>เบา</span>
                                 </button>
                                 <button
-                                    className={`control-btn ${mode === 'auto' ? 'active' : ''}`}
+                                    className={`control-btn ${mode === 'auto' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={() => handleModeChange('auto')}
-                                    disabled={!power || isControlling}
+                                    disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
                                     <Fan size={24} /><span>อัตโนมัติ</span>
                                 </button>
                                 <button
-                                    className={`control-btn ${mode === 'sleep' || mode === 'night' ? 'active' : ''}`}
+                                    className={`control-btn ${mode === 'sleep' || mode === 'night' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={() => handleModeChange('sleep')}
-                                    disabled={!power || isControlling}
+                                    disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
                                     <Moon size={24} /><span>กลางคืน</span>
                                 </button>
@@ -1122,11 +1339,17 @@ export default function Devices() {
                                     <Clock className="schedule-icon" size={32} />
                                     <h2>ตั้งเวลาการทำงาน</h2>
                                     <div className="toggle-switch">
-                                        <input type="checkbox" id="schedule-toggle" checked={scheduleEnabled} onChange={handleScheduleToggle} />
+                                        <input 
+                                            type="checkbox" 
+                                            id="schedule-toggle" 
+                                            checked={scheduleEnabled} 
+                                            onChange={handleScheduleToggle}
+                                            disabled={!selectedDevice?.is_active}
+                                        />
                                         <label htmlFor="schedule-toggle"></label>
                                     </div>
                                 </div>
-                                <div className={`schedule-content ${!scheduleEnabled ? 'disabled' : ''}`}>
+                                <div className={`schedule-content ${!scheduleEnabled || !selectedDevice?.is_active ? 'disabled' : ''}`}>
                                     <div className="time-settings">
                                         <div className="time-group">
                                             <label htmlFor="start-time">เวลาเริ่มทำงาน</label>
@@ -1163,14 +1386,15 @@ export default function Devices() {
                                         <button
                                             className="save-schedule-btn"
                                             onClick={handleSetSchedule}
+                                            disabled={!selectedDevice?.is_active}
                                             style={{
                                                 padding: '10px 20px',
-                                                backgroundColor: '#26c42e',
+                                                backgroundColor: !selectedDevice?.is_active ? '#cccccc' : '#26c42e',
                                                 color: 'white',
                                                 border: 'none',
                                                 borderRadius: '8px',
                                                 fontSize: '16px',
-                                                cursor: 'pointer'
+                                                cursor: !selectedDevice?.is_active ? 'not-allowed' : 'pointer'
                                             }}
                                         >
                                             {scheduleEnabled

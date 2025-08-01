@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
       });
 
       if (!response.ok) {
+        // ถ้าเป็น 404 แสดงว่าอุปกรณ์ไม่มีข้อมูล working time ตั้งค่าไว้ (เป็นเรื่องปกติ)
+        if (response.status === 404) {
+          console.log(`ไม่พบข้อมูล working time สำหรับ connection_key: ${connectionKey} (404 - ปกติ)`);
+          throw new Error('No working time data found');
+        }
         throw new Error(`Backend API responded with ${response.status}`);
       }
 
@@ -44,10 +49,10 @@ export async function GET(request: NextRequest) {
         throw new Error('Invalid response format from backend');
       }
 
-    } catch (error) {
-      console.log('Error connecting to backend API:', error);
+    } catch {
+      console.log('ใช้ข้อมูลเริ่มต้นสำหรับ working time ของ connection_key:', connectionKey);
 
-      // กรณีไม่สามารถเชื่อมต่อ Backend ได้ ส่งข้อมูลจำลองกลับไป
+      // กรณีไม่สามารถเชื่อมต่อ Backend ได้หรือไม่มีข้อมูล ส่งข้อมูลเริ่มต้นกลับไป
       return NextResponse.json({
         success: true,
         data: {

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         const result = await deviceManagementApi.getDevices(user_id);
         
         if (result.success) {
-            console.log("API /devices/get_device response:", result.data);
+            console.log(`API /devices/get_device response for user ${user_id}:`, result.data?.length || 0, 'devices found');
             return NextResponse.json({ success: true, data: result.data });
         } else {
             console.error("API error:", result.message);

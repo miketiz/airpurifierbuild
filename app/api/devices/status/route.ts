@@ -30,6 +30,11 @@ export async function GET(request: NextRequest) {
       });
       
       if (!response.ok) {
+        // ถ้าเป็น 404 แสดงว่าอุปกรณ์ไม่ได้เชื่อมต่อหรือไม่มีข้อมูลสถานะ (เป็นเรื่องปกติ)
+        if (response.status === 404) {
+          console.log(`ไม่พบข้อมูลสถานะสำหรับ connection_key: ${connectionKey} (404 - ปกติ)`);
+          throw new Error('No device status data found');
+        }
         throw new Error(`Backend API responded with ${response.status}`);
       }
       
@@ -52,10 +57,10 @@ export async function GET(request: NextRequest) {
         throw new Error('Invalid response format from backend');
       }
       
-    } catch (error) {
-      console.log('Error connecting to real backend, using mock data instead:', error);
+    } catch  {
+      console.log('ใช้ข้อมูลเริ่มต้นสำหรับสถานะของ connection_key:', connectionKey);
       
-      // กรณีไม่สามารถเชื่อมต่อ Backend ได้ ส่ง mock data กลับไป
+      // กรณีไม่สามารถเชื่อมต่อ Backend ได้หรือไม่มีข้อมูล ส่งข้อมูลเริ่มต้นกลับไป
       return NextResponse.json({ 
         success: true, 
         data: {

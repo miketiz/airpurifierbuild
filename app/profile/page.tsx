@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import "@/styles/profilestyle.css";
 import Sidebar from "../components/Sidebar";
-import { Mail,Calendar, Lock } from "lucide-react";
+import { Mail, Calendar, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { formatThaiDateTime } from "@/app/utils/formatDatetime";
 import Image from "next/image";
- import LoadingSpinner from "../components/LoadingSpinner"; // เพิ่ม import LoadingSpinner
+import LoadingSpinner from "../components/LoadingSpinner"; // เพิ่ม import LoadingSpinner
+import axios from "axios"; // เพิ่ม import axios
+import { toast, Toaster } from "react-hot-toast"; // เพิ่ม import toast
 
 export default function Profile() {
     const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -16,21 +18,64 @@ export default function Profile() {
         confirmPassword: ''
     });
     const [isLoading, setIsLoading] = useState(true); // เพิ่ม state สำหรับการโหลด
+    const [isSaving, setIsSaving] = useState(false); // เพิ่ม state สำหรับการบันทึก
+    
+    // เพิ่ม state สำหรับแสดง/ซ่อนรหัสผ่าน
 
-    const handlePasswordChange = (e: React.FormEvent) => {
+    const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-            alert('รหัสผ่านใหม่ไม่ตรงกัน');
+        
+        // ตรวจสอบข้อมูล
+        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+            toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
             return;
         }
-        // TODO: เพิ่มการเรียก API สำหรับเปลี่ยนรหัสผ่าน
-        setIsChangingPassword(false);
-        setPasswordData({
-            currentPassword: '',
-            newPassword: '',
-            confirmPassword: ''
-        });
-        alert('เปลี่ยนรหัสผ่านสำเร็จ');
+        
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            toast.error('รหัสผ่านใหม่ไม่ตรงกัน');
+            return;
+        }
+
+        if (passwordData.newPassword.length < 6) {
+            toast.error('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
+            return;
+        }
+
+        if (!session?.user?.id) {
+            toast.error('ไม่พบข้อมูลผู้ใช้');
+            return;
+        }
+
+        setIsSaving(true);
+        
+        try {
+            const response = await axios.post('/api/changepassword', {
+                user_id: String(session.user.id),
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
+            });
+
+            if (response.data.success) {
+                toast.success('เปลี่ยนรหัสผ่านสำเร็จ');
+                setIsChangingPassword(false);
+                setPasswordData({
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: ''
+                });
+            } else {
+                toast.error(response.data.message || 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
+            }
+        } catch (error) {
+            console.error('Error changing password:', error);
+            if (axios.isAxiosError(error) && error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error('เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
+            }
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const { data: session, status } = useSession();
@@ -48,6 +93,7 @@ export default function Profile() {
 
     return (
         <div className="dashboard-container">
+            <Toaster />
             <Sidebar />
             <div className="main-content">
                 {isLoading ? (
@@ -129,6 +175,8 @@ export default function Profile() {
                                                 type="password"
                                                 value={passwordData.currentPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                                                required
+                                                disabled={isSaving}
                                             />
                                         </div>
                                         <div className="form-group">
@@ -137,6 +185,9 @@ export default function Profile() {
                                                 type="password"
                                                 value={passwordData.newPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                                required
+                                                minLength={6}
+                                                disabled={isSaving}
                                             />
                                         </div>
                                         <div className="form-group">
@@ -145,13 +196,23 @@ export default function Profile() {
                                                 type="password"
                                                 value={passwordData.confirmPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                                                required
+                                                minLength={6}
+                                                disabled={isSaving}
                                             />
                                         </div>
                                         <div className="form-actions">
-                                            <button type="submit" className="save-btn">บันทึก</button>
+                                            <button 
+                                                type="submit" 
+                                                className="save-btn"
+                                                disabled={isSaving}
+                                            >
+                                                {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+                                            </button>
                                             <button
                                                 type="button"
                                                 className="cancel-btn"
+                                                disabled={isSaving}
                                                 onClick={() => {
                                                     setIsChangingPassword(false);
                                                     setPasswordData({

@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
         // เช็คว่าข้อมูลมีรูปแบบที่ถูกต้อง
         if (!rawData || rawData.status !== 1 || !rawData.data) {
-            console.log('ข้อมูลจาก API ไม่ถูกต้องหรือไม่มีข้อมูล');
+            console.log(`ไม่มีข้อมูลฝุ่นสำหรับ connection_key: ${connectionKey} (ใช้ค่าเริ่มต้น)`);
             return NextResponse.json({
                 success: true,
                 data: {
@@ -61,11 +61,16 @@ export async function GET(request: Request) {
             }
         }, { headers });
     } catch (error: unknown) {
-        console.error('Error fetching dust data:', error);
         // บันทึก response error ถ้ามี เพื่อการดีบัก
         if (axios.isAxiosError(error) && error.response) {
-            console.log('Error response status:', error.response.status);
-            console.log('Error response data:', error.response.data);
+            if (error.response.status === 404) {
+                console.log(`ไม่พบข้อมูลฝุ่นสำหรับ connection_key: ${connectionKey} (404 - ปกติ)`);
+            } else {
+                console.error('Error fetching dust data - Status:', error.response.status);
+                console.log('Error response data:', error.response.data);
+            }
+        } else {
+            console.error('Error fetching dust data (network/other):', error);
         }
 
         // กรณีเกิด error ใช้ข้อมูลเป็น 0

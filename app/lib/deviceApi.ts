@@ -26,8 +26,6 @@ export const deviceManagementApi = {
                 };
             }
         } catch (error: unknown) {
-            console.error('Error fetching devices:', error);
-
             // ตรวจสอบ type ก่อนใช้งาน
             let message = 'ไม่สามารถดึงข้อมูลอุปกรณ์ได้';
 
@@ -37,26 +35,31 @@ export const deviceManagementApi = {
 
             // ตรวจสอบ axios error
             if (axios.isAxiosError(error) && error.response) {
-                console.error('Error status:', error.response.status);
-                console.error('Error data:', error.response.data);
-
-                // ถ้า backend ตอบ 404 ให้ส่ง data: [] แทน (เหมือนกับไฟล์ route เดิม)
+                // ถ้า backend ตอบ 404 ให้ส่ง data: [] แทน (กรณีไม่มี device สำหรับ user นี้)
                 if (error.response.status === 404) {
+                    console.log(`ไม่พบอุปกรณ์สำหรับผู้ใช้ ID: ${userId} (404 - ปกติ)`);
                     return {
                         success: true,
                         data: [],
                     };
                 }
 
+                // Log error สำหรับ status อื่นที่ไม่ใช่ 404
+                console.error('Error fetching devices - Status:', error.response.status);
+                console.error('Error data:', error.response.data);
+
                 // ใช้ข้อมูล error จาก response ถ้ามี
                 if (error.response.data?.message) {
                     message = error.response.data.message;
                 }
+            } else {
+                // Log error สำหรับกรณีอื่นๆ (network error, etc.)
+                console.error('Error fetching devices:', error);
             }
 
             return {
                 success: false,
-                error: error instanceof Error ? error.message : String(error), // แปลง error ให้เป็น string
+                error: error instanceof Error ? error.message : String(error),
                 message,
                 data: [],
             };
