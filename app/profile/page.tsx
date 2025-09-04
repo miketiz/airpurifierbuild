@@ -105,7 +105,7 @@ export default function Profile() {
                             <div className="profile-cover">
                                 <div className="profile-avatar">
                                     <Image
-                                        src={session?.user.image || "/default-profile.png"}
+                                        src={session?.user.image || "@/public/img/profile-user.png"}
                                         alt="profile"
                                         width={100}
                                         height={100}
