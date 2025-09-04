@@ -1296,12 +1296,13 @@ export default function Devices() {
                                     )}
                                     <span>{power ? 'ปิด' : 'เปิด'}</span>
                                 </button>
+                                
                                 <button
-                                    className={`control-btn ${mode === 'high' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
-                                    onClick={() => handleModeChange('high')}
+                                    className={`control-btn ${mode === 'low' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
+                                    onClick={() => handleModeChange('low')}
                                     disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
-                                    <Gauge size={24} /><span>แรง</span>
+                                    <Gauge size={24} /><span>เบา</span>
                                 </button>
                                 <button
                                     className={`control-btn ${mode === 'medium' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
@@ -1311,11 +1312,11 @@ export default function Devices() {
                                     <Gauge size={24} /><span>ปานกลาง</span>
                                 </button>
                                 <button
-                                    className={`control-btn ${mode === 'low' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
-                                    onClick={() => handleModeChange('low')}
+                                    className={`control-btn ${mode === 'high' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
+                                    onClick={() => handleModeChange('high')}
                                     disabled={!power || isControlling || !selectedDevice?.is_active}
                                 >
-                                    <Gauge size={24} /><span>เบา</span>
+                                    <Gauge size={24} /><span>แรง</span>
                                 </button>
                                 <button
                                     className={`control-btn ${mode === 'auto' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}

@@ -1,4 +1,14 @@
 .settings-container {
+  background-color: var(--background-color); /* แทนที่ #ffffff */
+  color: var(--text-color); /* แทนที่ #333333 */
+}
+
+.settings-card {
+  background-color: var(--card-background); /* แทนที่ #f8f9fa */
+  border: 1px solid var(--border-color); /* แทนที่ #e0e0e0 */
+}
+
+.settings-container {
     padding: 20px;
     max-width: 1200px;
     margin: 0 auto;
@@ -436,6 +446,21 @@
 
 .dark .toggle-switch::before {
     background-color: var(--text-secondary);
+}
+.save-threshold-btn{
+    background-color: #26c42e;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.save-threshold-btn:hover{
+    background-color: darken(#26c42e, 5%);
+    box-shadow: 0 4px 12px rgba(38, 196, 46, 0.3);
+    border-radius: 8px;;
 }
 
 /* Responsive design */
