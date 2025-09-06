@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import { signIn } from "next-auth/react";
 import { Eye, EyeClosed, ArrowLeftToLine } from 'lucide-react';
 
+;;
 export default function Login() {
     const router = useRouter();
     const [currentView, setCurrentView] = useState("login"); // "login", "register", "forgotPassword"

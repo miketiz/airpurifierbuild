@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from 'react-hot-toast';
 import "@/styles/forgotpassword.css";
 
+;;
 // Component ที่ใช้ useSearchParams ต้องแยกออกมา
 function ResetPasswordForm() {
     const router = useRouter();

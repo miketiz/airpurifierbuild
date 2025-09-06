@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+;;
 // สร้าง mock data สำหรับกรณีไม่มีข้อมูลจริง
 const getMockHistoricalData = () => {
   const hours = [];

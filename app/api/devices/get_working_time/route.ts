@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+;;
 export async function GET(request: NextRequest) {
   try {
     // อ่านค่า connection_key และ user_id จาก query parameters

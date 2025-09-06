@@ -19,6 +19,7 @@ import { useCurrentDustData, useHistoricalDustData } from "./hooks/useDustData";
 import { Device, HistoricalDustData } from "./types/dashboard";
 import { convertDevicesData } from "./utils/dashboardUtils";
 
+;
 export default function Dashboard() {
     // State เดิมที่จำเป็นต้องคงไว้
     const [temperature, setTemperature] = useState<number>(25);
@@ -199,6 +200,43 @@ export default function Dashboard() {
             });
         }
     }, [currentDustData]);
+
+    // ในไฟล์ page.tsx
+const [filterStatus, setFilterStatus] = useState<"normal" | "abnormal" | "unknown">("unknown");
+
+// เมื่อเรียก API สำหรับสถานะกรอง ให้แปลงค่าเป็นรูปแบบใหม่
+useEffect(() => {
+    const fetchFilterStatus = async () => {
+        if (!selectedDevice?.device_id) return;
+        
+        try {
+            // เรียก API เพื่อดึงข้อมูลสถานะกรอง
+            const response = await fetch(`/api/devices/filter_status?device_id=${selectedDevice.device_id}`);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                // แปลงค่าจาก API เป็นรูปแบบใหม่
+                if (data.data.status === "normal") {
+                    setFilterStatus("normal");
+                } else {
+                    // ทุกสถานะที่ไม่ใช่ normal ให้เป็น abnormal
+                    setFilterStatus("abnormal");
+                }
+            } else {
+                setFilterStatus("unknown");
+            }
+        } catch (error) {
+            console.error("Error fetching filter status:", error);
+            setFilterStatus("unknown");
+        }
+    };
+    
+    if (selectedDevice?.is_active) {
+        fetchFilterStatus();
+    } else {
+        setFilterStatus("unknown");
+    }
+}, [selectedDevice?.device_id, selectedDevice?.is_active]);
 
     useEffect(() => {
         console.log('=== RENDER DASHBOARD ===', {

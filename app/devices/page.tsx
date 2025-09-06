@@ -29,7 +29,7 @@ import {
     useWorkingTime,
     useSetWorkingTime
 } from "../hooks/useDeviceData";
-
+;
 
 // กำหนด type สำหรับ device
 type Device = {

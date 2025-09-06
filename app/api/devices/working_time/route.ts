@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+;;
 // เพิ่ม GET handler
 export async function GET(request: NextRequest) {
   try {

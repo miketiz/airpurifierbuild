@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/auth";
 import { deviceManagementApi } from "@/app/lib/deviceApi";
 
+;;
 const BASE_URL = "https://fastapi.mm-air.online/";
 
 // GET: ดึง device ตาม user_id

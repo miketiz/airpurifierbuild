@@ -22,30 +22,38 @@ export default function Sidebar({ className }: SidebarProps) {
     const handleNavigation = (path: string) => {
         router.push(path);
     };
-    
+
     const handleLogout = async () => {
         try {
             await signOut({
                 redirect: false,
                 callbackUrl: "/login"
             });
-            
+
             // Toast แบบสวยงาม
             toast.success("ออกจากระบบสำเร็จ", {
                 icon: '👋',
                 duration: 3000,
                 style: {
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)',
-                    color: '#fff',
-                    padding: '16px 24px',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.25)',
-                    fontSize: '15px',
+                    borderRadius: '10px',
+                    background: '#ffffff',
+                    color: '#333333',
+                    padding: '12px 18px',
+                    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02)',
+                    fontSize: '14px',
                     fontWeight: '500',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    border: 'none',
+                    maxWidth: '280px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                },
+                iconTheme: {
+                    primary: '#22c55e',
+                    secondary: '#ffffff'
                 },
             });
-            
+
             router.push("/login");
         } catch (error) {
             console.error("Logout error:", error);
@@ -66,7 +74,7 @@ export default function Sidebar({ className }: SidebarProps) {
             });
         }
     };
-    
+
 
     useEffect(() => {
         // เพิ่มหรือลบคลาส sidebar-collapsed จาก main-content

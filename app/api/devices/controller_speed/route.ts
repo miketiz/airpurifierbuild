@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+;;
 export async function POST(request: NextRequest) {
     try {
         // อ่านข้อมูลจาก request

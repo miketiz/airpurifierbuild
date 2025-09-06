@@ -4,6 +4,7 @@ import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
 import axios from "axios";
 
+;;
 const API_BASE = process.env.PRIVATE_API_AUTH || "https://fastapi.mm-air.online/auth";
 
 export const authOptions: NextAuthOptions = {

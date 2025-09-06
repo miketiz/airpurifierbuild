@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import axios from "axios";
 import nodemailer from "nodemailer";
 
+;;
 // สร้าง TypeScript interfaces สำหรับข้อมูลผลลัพธ์
 interface AlertItem {
     userId: string | number;

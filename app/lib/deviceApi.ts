@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+;;
 const BASE_URL = "https://fastapi.mm-air.online";
 
 // device management API

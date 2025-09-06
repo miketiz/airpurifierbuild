@@ -1,6 +1,6 @@
 "use client";
 
-import { Thermometer, Droplets, Wind } from "lucide-react";
+import { Thermometer, Droplets, Wind, Filter } from "lucide-react";
 import { Device } from "../types/dashboard";
 
 interface DashboardCardsProps {
@@ -9,6 +9,7 @@ interface DashboardCardsProps {
     pm25: number;
     temperature: number;
     humidity: number;
+    filterStatus?: "normal" | "abnormal" | "unknown";  // เปลี่ยนเป็นแค่ normal/abnormal
 }
 
 export default function DashboardCards({
@@ -16,7 +17,8 @@ export default function DashboardCards({
     isDustLoading,
     pm25,
     temperature,
-    humidity
+    humidity,
+    filterStatus = "unknown"
 }: DashboardCardsProps) {
     // ฟังก์ชันแสดงสถานะคุณภาพอากาศ
     const getAirQualityStatus = (pm25Value: number) => {
@@ -25,6 +27,20 @@ export default function DashboardCards({
         if (pm25Value <= 100) return "แย่";
         return "อันตราย";
     };
+
+    // ฟังก์ชันแสดงข้อมูลสถานะกรอง - ปรับเหลือแค่ 2 สถานะ
+    const getFilterStatusInfo = (status: string) => {
+        switch (status) {
+            case "normal":
+                return { text: "ปกติ", color: "#10b981" };  // สีเขียว
+            case "abnormal":
+                return { text: "ผิดปกติ", color: "#ef4444" };  // สีแดง
+            default:
+                return { text: "ไม่ทราบสถานะ", color: "#6b7280" };  // สีเทา
+        }
+    };
+
+    const filterInfo = getFilterStatusInfo(filterStatus);
 
     return (
         <div className="dashboard-grid">
@@ -98,6 +114,28 @@ export default function DashboardCards({
                                     </>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Filter Status Card - ปรับปรุงให้เรียบง่ายขึ้น */}
+            <div className="card filter-card">
+                <h2 className="font-sriracha">สถานะไส้กรองอากาศ</h2>
+                {!selectedDevice?.is_active ? (
+                    <div className="filter-inactive">
+                        <span className="device-inactive">อุปกรณ์ปิดอยู่</span>
+                    </div>
+                ) : (
+                    <div className="filter-info">
+                        <Filter size={40} className="filter-icon" />
+                        <div className="filter-details">
+                            <span
+                                className="filter-status"
+                                style={{ color: filterInfo.color, fontSize: "1.5rem", fontWeight: "bold" }}
+                            >
+                                {filterInfo.text}
+                            </span>
                         </div>
                     </div>
                 )}

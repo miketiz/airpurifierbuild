@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceControlApi} from '../services/deviceApi';
 import axios from 'axios';
 
+;
 // hook สำหรับดึงข้อมูลอุปกรณ์
 export function useDevices(userId: string | undefined) {
     return useQuery({

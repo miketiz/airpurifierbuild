@@ -28,6 +28,7 @@ import { useHistoricalDustData } from "../hooks/useDustData";
 import { Device, HistoricalDustData } from "../types/dashboard";
 import { convertDevicesData } from "../utils/dashboardUtils";
 
+;
 // Register autoTable with jsPDF
 declare module 'jspdf' {
     interface jsPDF {

@@ -8,6 +8,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 
+;
 export default function Settings() {
     const { darkMode, toggleDarkMode } = useTheme();
     const { data: session } = useSession();
