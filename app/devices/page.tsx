@@ -286,6 +286,19 @@ export default function Devices() {
 
     // เพิ่ม useEffect สำหรับอัพเดตข้อมูลฝุ่น ใส่หลังจาก useEffect ของ workingTimeData
     useEffect(() => {
+        // เช็คเงื่อนไขการเชื่อมต่อของเครื่อง
+        if (!selectedDevice || !selectedDevice.is_active) {
+            // ถ้าไม่มีเครื่องที่เลือกหรือเครื่องไม่ได้เชื่อมต่อ ให้แสดงค่าเป็น 0 ทั้งหมด
+            setPm25(0);
+            setAqi(0);
+            setTemperature(0);
+            setHumidity(0);
+            setAirQualityStatus("ไม่มีข้อมูล");
+            setLastUpdated(null);
+            return;
+        }
+
+        // ส่วนนี้ทำงานเมื่อเครื่องเชื่อมต่ออยู่
         if (currentDustData?.success && currentDustData.data) {
             try {
                 const dustData = currentDustData.data;
@@ -330,6 +343,7 @@ export default function Devices() {
             setAqi(0);
             setTemperature(0);
             setHumidity(0);
+            setAirQualityStatus("ไม่มีข้อมูล");
         }
     }, [currentDustData, selectedDevice]);
 
@@ -520,7 +534,7 @@ export default function Devices() {
 
                         setDeviceList(devices);
                         setHasDevice(devices.length > 0);
-
+                        
                         // ถ้ามีเครื่องใหม่ ให้เลือกเครื่องล่าสุดและตั้งสถานะเป็นปิด
                         if (devices.length > 0) {
                             const latestDevice = devices[devices.length - 1]; // เลือกเครื่องล่าสุด
@@ -1164,7 +1178,7 @@ export default function Devices() {
                                 <div className="air-quality-card">
                                     <h3>PM 2.5</h3>
                                     <div className="value">
-                                        {!selectedDevice ? "0" :
+                                        {!selectedDevice || !selectedDevice.is_active ? "0" : 
                                             isDustLoading ? "0" : pm25}
                                     </div>
                                     <div className="unit">µg/m³</div>
@@ -1172,25 +1186,31 @@ export default function Devices() {
                                 <div className="air-quality-card">
                                     <h3>AQI</h3>
                                     <div className="value">
-                                        {!selectedDevice ? "0" :
+                                        {!selectedDevice || !selectedDevice.is_active ? "0" : 
                                             isDustLoading ? "0" : aqi}
                                     </div>
-                                    <div className="status">คุณภาพอากาศ
-                                        {!selectedDevice ? "ไม่มีข้อมูล" :
-                                            isDustLoading ? "กำลังโหลด..." : airQualityStatus}
-                                    </div>
+                                    <div className="status">คุณภาพอากาศ {
+                                        !selectedDevice || !selectedDevice.is_active ? "ไม่มีข้อมูล" :
+                                            isDustLoading ? "กำลังโหลด..." : airQualityStatus
+                                    }</div>
                                 </div>
                                 <div className="air-quality-card temp-humid-card">
                                     <h3>สภาพแวดล้อม</h3>
                                     <div className="temp-humid-container">
                                         <div className="temp-section">
                                             <Thermometer size={30} />
-                                            <div className="value">{isDustLoading ? "..." : temperature}</div>
+                                            <div className="value">
+                                                {!selectedDevice || !selectedDevice.is_active ? "0" : 
+                                                    isDustLoading ? "..." : temperature}
+                                            </div>
                                             <div className="unit">°C</div>
                                         </div>
                                         <div className="humid-section">
                                             <Droplets size={30} />
-                                            <div className="value">{isDustLoading ? "..." : humidity}</div>
+                                            <div className="value">
+                                                {!selectedDevice || !selectedDevice.is_active ? "0" : 
+                                                    isDustLoading ? "..." : humidity}
+                                            </div>
                                             <div className="unit">%</div>
                                         </div>
                                     </div>
@@ -1201,14 +1221,15 @@ export default function Devices() {
                                 <div>
                                     <span>อัพเดตล่าสุด: </span>
                                     <span className="time-value">
-                                        {lastUpdated ? lastUpdated.toLocaleTimeString('th-TH') : '-'}
+                                        {!selectedDevice || !selectedDevice.is_active ? '-' : 
+                                            lastUpdated ? lastUpdated.toLocaleTimeString('th-TH') : '-'}
                                     </span>
-                                    {isRefetchingDust && <span className="refreshing"> (กำลังอัพเดต...)</span>}
+                                    {isRefetchingDust && selectedDevice?.is_active && <span className="refreshing"> (กำลังอัพเดต...)</span>}
                                 </div>
                                 <button
                                     className="refresh-dust-btn"
                                     onClick={() => {
-                                        if (selectedDevice?.connection_key) {
+                                        if (selectedDevice?.connection_key && selectedDevice.is_active) {
                                             // เพิ่ม timestamp เพื่อป้องกัน cache
                                             queryClient.invalidateQueries({
                                                 queryKey: ['currentDust', selectedDevice.connection_key]
@@ -1218,7 +1239,7 @@ export default function Devices() {
                                             setLastUpdated(new Date());
                                         }
                                     }}
-                                    disabled={isRefetchingDust || !selectedDevice}
+                                    disabled={isRefetchingDust || !selectedDevice || !selectedDevice.is_active}
                                     style={{
                                         marginLeft: '10px',
                                         padding: '4px 10px',
@@ -1227,7 +1248,7 @@ export default function Devices() {
                                         border: 'none',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
-                                        opacity: isRefetchingDust || !selectedDevice ? 0.6 : 1
+                                        opacity: isRefetchingDust || !selectedDevice || !selectedDevice.is_active ? 0.6 : 1
                                     }}
                                 >
                                     รีเฟรชข้อมูล

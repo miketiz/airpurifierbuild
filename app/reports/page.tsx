@@ -304,11 +304,11 @@ export default function Reports() {
                                         <span className="stat-value">{weeklyData.average}</span>
                                         <span className="stat-unit">µg/m³</span>
                                     </div>
-                                    <div className="stat-item">
+                                    {/* <div className="stat-item">
                                         <span className="stat-label">ชั่วโมงการทำงาน</span>
                                         <span className="stat-value">999</span>
                                         <span className="stat-unit">ชั่วโมง</span>
-                                    </div>
+                                    </div> */}
                                     <div className="stat-item">
                                         <span className="stat-label">ค่าสูงสุด</span>
                                         <span className="stat-value">
