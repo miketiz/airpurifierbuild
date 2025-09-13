@@ -10,6 +10,7 @@ interface DashboardCardsProps {
     temperature: number;
     humidity: number;
     filterStatus?: "normal" | "abnormal" | "unknown";  // เปลี่ยนเป็นแค่ normal/abnormal
+    filterSuggestion?: string;  // เพิ่มบรรทัดนี้
 }
 
 export default function DashboardCards({
@@ -18,7 +19,8 @@ export default function DashboardCards({
     pm25,
     temperature,
     humidity,
-    filterStatus = "unknown"
+    filterStatus = "unknown",
+    filterSuggestion = ""  // เพิ่มบรรทัดนี้
 }: DashboardCardsProps) {
     // ฟังก์ชันแสดงสถานะคุณภาพอากาศ
     const getAirQualityStatus = (pm25Value: number) => {
@@ -119,7 +121,7 @@ export default function DashboardCards({
                 )}
             </div>
 
-            {/* Filter Status Card - ปรับปรุงให้เรียบง่ายขึ้น */}
+            {/* Filter Status Card - ปรับปรุงให้แสดง suggestion */}
             <div className="card filter-card">
                 <h2 className="font-sriracha">สถานะไส้กรองอากาศ</h2>
                 {!selectedDevice?.is_active ? (
@@ -136,6 +138,11 @@ export default function DashboardCards({
                             >
                                 {filterInfo.text}
                             </span>
+                            {filterSuggestion && (
+                                <p className="filter-suggestion" style={{ marginTop: "8px", fontSize: "0.9rem" }}>
+                                    {filterSuggestion}
+                                </p>
+                            )}
                         </div>
                     </div>
                 )}

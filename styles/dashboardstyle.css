@@ -699,3 +699,31 @@
     max-width: 1400px;
   }
 }
+
+/* เพิ่มลงในไฟล์ dashboardstyle.css */
+.filter-suggestion {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background-color: #f0f9ff;
+    font-size: 0.9rem;
+    text-align: center;
+    width: 100%;
+}
+
+.dark .filter-suggestion {
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+.filter-icon {
+    color: #6366f1;
+}
+
+.filter-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}

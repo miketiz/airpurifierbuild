@@ -203,31 +203,44 @@ export default function Dashboard() {
 
     // ในไฟล์ page.tsx
 const [filterStatus, setFilterStatus] = useState<"normal" | "abnormal" | "unknown">("unknown");
+const [filterSuggestion, setFilterSuggestion] = useState<string>("");
 
 // เมื่อเรียก API สำหรับสถานะกรอง ให้แปลงค่าเป็นรูปแบบใหม่
 useEffect(() => {
     const fetchFilterStatus = async () => {
-        if (!selectedDevice?.device_id) return;
+        if (!selectedDevice?.connection_key) return;
         
         try {
-            // เรียก API เพื่อดึงข้อมูลสถานะกรอง
-            const response = await fetch(`/api/devices/filter_status?device_id=${selectedDevice.device_id}`);
+            // ส่ง connection_key ไปให้ API
+            const response = await fetch(`/api/devices/filterstatus?connection_key=${selectedDevice.connection_key}`);
             const data = await response.json();
             
+            console.log("Filter status response:", data);
+            
             if (data.success && data.data) {
-                // แปลงค่าจาก API เป็นรูปแบบใหม่
+                // แก้ไขการตรวจสอบสถานะ เพื่อให้ตรงกับการส่งกลับจาก API
                 if (data.data.status === "normal") {
                     setFilterStatus("normal");
-                } else {
-                    // ทุกสถานะที่ไม่ใช่ normal ให้เป็น abnormal
+                } else if (data.data.status === "abnormal") {
                     setFilterStatus("abnormal");
+                } else {
+                    setFilterStatus("unknown");
+                }
+                
+                // เก็บค่า suggestion จาก API
+                if (data.data.suggestion) {
+                    setFilterSuggestion(data.data.suggestion);
+                } else {
+                    setFilterSuggestion(data.data.status === "normal" ? "✅ กรองยังใช้งานได้ปกติ" : "⚠️ ควรเปลี่ยนไส้กรองใหม่");
                 }
             } else {
                 setFilterStatus("unknown");
+                setFilterSuggestion("");
             }
         } catch (error) {
             console.error("Error fetching filter status:", error);
             setFilterStatus("unknown");
+            setFilterSuggestion("");
         }
     };
     
@@ -235,8 +248,9 @@ useEffect(() => {
         fetchFilterStatus();
     } else {
         setFilterStatus("unknown");
+        setFilterSuggestion("");
     }
-}, [selectedDevice?.device_id, selectedDevice?.is_active]);
+}, [selectedDevice?.connection_key, selectedDevice?.is_active]);
 
     useEffect(() => {
         console.log('=== RENDER DASHBOARD ===', {
@@ -277,6 +291,8 @@ useEffect(() => {
                             pm25={pm25}
                             temperature={temperature}
                             humidity={humidity}
+                            filterStatus={filterStatus}
+                            filterSuggestion={filterSuggestion}  // เพิ่มบรรทัดนี้
                         />
 
                         <ChartSection

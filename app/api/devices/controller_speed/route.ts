@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-;;
+import axios from 'axios';
 export async function POST(request: NextRequest) {
     try {
         // อ่านข้อมูลจาก request
@@ -15,28 +14,48 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // ส่งคำขอไปยัง Backend API จริง
-        const apiResponse = await fetch('https://fastapi.mm-air.online/devices/controller_speed', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        });
-
-        // ตรวจสอบการตอบกลับ
-        if (!apiResponse.ok) {
-            const errorText = await apiResponse.text();
-            console.error(`Backend API responded with ${apiResponse.status}: ${errorText}`);
-            return NextResponse.json(
-                { success: false, message: 'Backend API error', error: errorText },
-                { status: apiResponse.status }
+        // ส่งคำขอไปยัง Backend API จริงโดยใช้ axios
+        try {
+            const apiResponse = await axios.post(
+                'https://fastapi.mm-air.online/devices/controller_speed',
+                body,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 10000, // เพิ่ม timeout 10 วินาที
+                }
             );
-        }
 
-        // ส่งการตอบกลับจาก Backend ไปยังไคลเอ็นต์
-        const data = await apiResponse.json();
-        return NextResponse.json({ success: true, data });
+            // axios จะส่ง data โดยตรง ไม่ต้องแปลง response เป็น json
+            return NextResponse.json({ 
+                success: true, 
+                data: apiResponse.data 
+            });
+
+        } catch (apiError) {
+            // การจัดการข้อผิดพลาดแบบ axios
+            if (axios.isAxiosError(apiError)) {
+                console.error(`Backend API error:`, {
+                    status: apiError.response?.status,
+                    statusText: apiError.response?.statusText,
+                    data: apiError.response?.data
+                });
+
+                // ส่งข้อผิดพลาดกลับไปยังไคลเอ็นต์
+                return NextResponse.json(
+                    { 
+                        success: false, 
+                        message: 'Backend API error', 
+                        error: apiError.response?.data || apiError.message 
+                    },
+                    { status: apiError.response?.status || 500 }
+                );
+            }
+            
+            // กรณีเป็นข้อผิดพลาดที่ไม่ใช่ axios error
+            throw apiError;
+        }
 
     } catch (error: unknown) {
         console.error('Error in API route:', error);
