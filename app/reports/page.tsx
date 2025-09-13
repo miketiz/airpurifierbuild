@@ -1,7 +1,7 @@
 "use client";
 
 import Sidebar from "../components/Sidebar";
-import { BarChart, Download } from "lucide-react";
+import { BarChart, Download, Calendar } from "lucide-react";
 import "@/styles/reportstyle.css";
 import {
     Chart as ChartJS,
@@ -27,8 +27,9 @@ import { useDevices } from "../hooks/useDeviceData";
 import { useHistoricalDustData } from "../hooks/useDustData";
 import { Device, HistoricalDustData } from "../types/dashboard";
 import { convertDevicesData } from "../utils/dashboardUtils";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
-;
 // Register autoTable with jsPDF
 declare module 'jspdf' {
     interface jsPDF {
@@ -78,6 +79,12 @@ export default function Reports() {
     const [chartType, setChartType] = useState<'line' | 'bar'>('line');
     const [showMultipleData, setShowMultipleData] = useState<boolean>(false);
 
+    // เพิ่ม State สำหรับจัดการช่วงเวลา
+    const [timeRange, setTimeRange] = useState<'7days' | '14days' | '30days' | 'custom'>('7days');
+    const [startDate, setStartDate] = useState<Date | null>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const [endDate, setEndDate] = useState<Date | null>(new Date());
+    const [daysToFetch, setDaysToFetch] = useState<number>(7);
+
     // Hooks
     const { data: session } = useSession();
     const { darkMode } = useTheme();
@@ -93,7 +100,7 @@ export default function Reports() {
     const {
         data: historicalData,
         isLoading: isHistoryLoading,
-    } = useHistoricalDustData(selectedDevice?.mac_id);
+    } = useHistoricalDustData(selectedDevice?.mac_id, daysToFetch, startDate, endDate);
 
     // ดึงข้อมูล devices
     useEffect(() => {
@@ -122,8 +129,13 @@ export default function Reports() {
         }
 
         if (historicalData?.status === 1 && historicalData.data && Array.isArray(historicalData.data) && historicalData.data.length > 0) {
-            // แปลงข้อมูลสำหรับกราห
-            const times = historicalData.data.map((item: HistoricalDustData) => {
+            // เรียงลำดับข้อมูลตามเวลา
+            const sortedData = [...historicalData.data].sort((a, b) => 
+                new Date(a.time).getTime() - new Date(b.time).getTime()
+            );
+            
+            // แปลงข้อมูลสำหรับกราฟ
+            const times = sortedData.map((item: HistoricalDustData) => {
                 const date = new Date(item.time);
                 return date.toLocaleDateString('th-TH', { 
                     month: 'short', 
@@ -131,9 +143,9 @@ export default function Reports() {
                     weekday: 'short'
                 });
             });
-            const pm25Values = historicalData.data.map((item: HistoricalDustData) => item.PM2 || 0);
-            const tempValues = historicalData.data.map((item: HistoricalDustData) => item.temperature || 0);
-            const humidityValues = historicalData.data.map((item: HistoricalDustData) => item.humidity || 0);
+            const pm25Values = sortedData.map((item: HistoricalDustData) => item.PM2 || 0);
+            const tempValues = sortedData.map((item: HistoricalDustData) => item.temperature || 0);
+            const humidityValues = sortedData.map((item: HistoricalDustData) => item.humidity || 0);
 
             setChartHours(times);
             setChartPm25Data(pm25Values);
@@ -261,6 +273,59 @@ export default function Reports() {
         }
     };
 
+    // ฟังก์ชันสำหรับเปลี่ยนช่วงเวลา
+    const handleTimeRangeChange = (range: '7days' | '14days' | '30days' | 'custom') => {
+        setTimeRange(range);
+        
+        const now = new Date();
+        let newStartDate: Date;
+        
+        switch(range) {
+            case '7days':
+                newStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                setDaysToFetch(7);
+                break;
+            case '14days':
+                newStartDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+                setDaysToFetch(14);
+                break;
+            case '30days':
+                newStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                setDaysToFetch(30);
+                break;
+            case 'custom':
+                // ในกรณี custom ให้ใช้ startDate และ endDate ที่ผู้ใช้เลือก
+                return;
+        }
+        
+        setStartDate(newStartDate);
+        setEndDate(now);
+    };
+    
+    // ปรับปรุงส่วนคำนวณวันระหว่าง startDate และ endDate
+    useEffect(() => {
+        if (timeRange === 'custom' && startDate && endDate) {
+            const days = calculateDaysBetween(startDate, endDate);
+            setDaysToFetch(days);
+        }
+    }, [startDate, endDate, timeRange]);
+
+    // ปรับปรุงฟังก์ชัน calculateDaysBetween ให้รับ null ได้
+    const calculateDaysBetween = (start: Date | null, end: Date | null) => {
+        if (!start || !end) return 0;
+        
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    };
+    // ตรวจสอบเมื่อ startDate หรือ endDate เปลี่ยน (กรณีเลือก custom)
+    useEffect(() => {
+        if (timeRange === 'custom' && startDate && endDate) {
+            const days = calculateDaysBetween(startDate, endDate);
+            setDaysToFetch(days);
+        }
+    }, [startDate, endDate, timeRange]);
+
     return (
         <div className={`dashboard-container ${darkMode ? 'dark' : ''}`}>
             <Sidebar />
@@ -291,6 +356,96 @@ export default function Reports() {
                             onDeviceSelect={setSelectedDevice}
                             onOfflineDeviceSelect={() => {}}
                         />
+                        
+                        {/* เพิ่มส่วนเลือกช่วงเวลา */}
+                        <div className="time-range-selector">
+                            <div className="time-range-buttons">
+                                <button 
+                                    className={`time-btn ${timeRange === '7days' ? 'active' : ''}`}
+                                    onClick={() => handleTimeRangeChange('7days')}
+                                >
+                                    7 วัน
+                                </button>
+                                <button 
+                                    className={`time-btn ${timeRange === '14days' ? 'active' : ''}`}
+                                    onClick={() => handleTimeRangeChange('14days')}
+                                >
+                                    14 วัน
+                                </button>
+                                <button 
+                                    className={`time-btn ${timeRange === '30days' ? 'active' : ''}`}
+                                    onClick={() => handleTimeRangeChange('30days')}
+                                >
+                                    30 วัน
+                                </button>
+                                <button 
+                                    className={`time-btn ${timeRange === 'custom' ? 'active' : ''}`}
+                                    onClick={() => handleTimeRangeChange('custom')}
+                                >
+                                    กำหนดเอง
+                                </button>
+                            </div>
+                            
+                            {timeRange === 'custom' && (
+                                <div className="custom-date-picker">
+                                    <div className="date-picker-container">
+                                        <label>วันเริ่มต้น:</label>
+                                        <div className="date-input-wrapper">
+                                            <Calendar size={16} className="date-icon" />
+                                            <DatePicker
+                                                selected={startDate}
+                                                onChange={(date: Date | null) => {
+                                                    // ถ้า date ไม่เป็น null ให้กำหนดค่า
+                                                    if (date) {
+                                                        setStartDate(date);
+                                                    }
+                                                }}
+                                                selectsStart
+                                                startDate={startDate}
+                                                endDate={endDate}
+                                                maxDate={new Date()}
+                                                dateFormat="dd/MM/yyyy"
+                                                className="date-input"
+                                                placeholderText="เลือกวันเริ่มต้น"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="date-picker-container">
+                                        <label>วันสิ้นสุด:</label>
+                                        <div className="date-input-wrapper">
+                                            <Calendar size={16} className="date-icon" />
+                                            <DatePicker
+                                                selected={endDate}
+                                                onChange={(date: Date | null) => {
+                                                    // ถ้า date ไม่เป็น null ให้กำหนดค่า
+                                                    if (date) {
+                                                        setEndDate(date);
+                                                    }
+                                                }}
+                                                selectsEnd
+                                                startDate={startDate}
+                                                endDate={endDate}
+                                                minDate={startDate || undefined} // แก้ไขตรงนี้
+                                                maxDate={new Date()}
+                                                dateFormat="dd/MM/yyyy"
+                                                className="date-input"
+                                                placeholderText="เลือกวันสิ้นสุด"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* แสดงช่วงวันที่ที่เลือก */}
+                            <div className="selected-date-range">
+                                <span>
+                                    ข้อมูลย้อนหลัง: {daysToFetch} วัน
+                                    {startDate && endDate && (
+                                        <> ({startDate.toLocaleDateString('th-TH')} - {endDate.toLocaleDateString('th-TH')})</>
+                                    )}
+                                </span>
+                            </div>
+                        </div>
 
                         <div className="report-grid">
                             <div className="report-card summary-card">
@@ -304,11 +459,6 @@ export default function Reports() {
                                         <span className="stat-value">{weeklyData.average}</span>
                                         <span className="stat-unit">µg/m³</span>
                                     </div>
-                                    {/* <div className="stat-item">
-                                        <span className="stat-label">ชั่วโมงการทำงาน</span>
-                                        <span className="stat-value">999</span>
-                                        <span className="stat-unit">ชั่วโมง</span>
-                                    </div> */}
                                     <div className="stat-item">
                                         <span className="stat-label">ค่าสูงสุด</span>
                                         <span className="stat-value">
@@ -326,21 +476,24 @@ export default function Reports() {
                                 </div>
                             </div>
                         </div>
-                        {/* ใช้ ChartSection component แทน chart เดิม */}
-                            <ChartSection
-                                selectedDevice={selectedDevice}
-                                isHistoryLoading={isHistoryLoading}
-                                chartHours={chartHours}
-                                chartData={chartPm25Data}
-                                chartTempData={chartTempData}
-                                chartHumidityData={chartHumidityData}
-                                chartType={chartType}
-                                showMultipleData={showMultipleData}
-                                darkMode={darkMode}
-                                onChartTypeChange={setChartType}
-                                onDataTypeChange={setShowMultipleData}
-                            />
-                        </div>
+                        
+                        {/* ส่งค่า daysToFetch ไปให้ ChartSection */}
+                        <ChartSection
+                            selectedDevice={selectedDevice}
+                            isHistoryLoading={isHistoryLoading}
+                            chartHours={chartHours}
+                            chartData={chartPm25Data}
+                            chartTempData={chartTempData}
+                            chartHumidityData={chartHumidityData}
+                            chartType={chartType}
+                            showMultipleData={showMultipleData}
+                            darkMode={darkMode}
+                            onChartTypeChange={setChartType}
+                            onDataTypeChange={setShowMultipleData}
+                            daysToShow={daysToFetch}
+                            dateRange={startDate && endDate ? `${startDate.toLocaleDateString('th-TH')} - ${endDate.toLocaleDateString('th-TH')}` : ''}
+                        />
+                    </div>
                 )}
             </div>
         </div>

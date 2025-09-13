@@ -39,6 +39,8 @@ interface ChartSectionProps {
     darkMode: boolean;
     onChartTypeChange: (type: 'line' | 'bar') => void;
     onDataTypeChange: (showMultiple: boolean) => void;
+    daysToShow?: number; // เพิ่มพารามิเตอร์นี้
+    dateRange?: string; // เพิ่มพารามิเตอร์นี้
 }
 
 export default function ChartSection({
@@ -52,7 +54,9 @@ export default function ChartSection({
     showMultipleData,
     darkMode,
     onChartTypeChange,
-    onDataTypeChange
+    onDataTypeChange,
+    daysToShow = 7,
+    dateRange = ''
 }: ChartSectionProps) {
     // Utility function for button classes
     const getButtonClass = (isActive: boolean) => 
@@ -138,7 +142,9 @@ export default function ChartSection({
             },
             title: {
                 display: true,
-                text: showMultipleData ? 'ข้อมูลสิ่งแวดล้อมเฉลี่ยรายวันย้อนหลัง 7 วัน' : 'ค่าฝุ่น PM 2.5 เฉลี่ยรายวันย้อนหลัง 7 วัน',
+                text: showMultipleData 
+                    ? `ข้อมูลสิ่งแวดล้อมเฉลี่ยรายวันย้อนหลัง ${daysToShow} วัน${dateRange ? ` (${dateRange})` : ''}` 
+                    : `ค่าฝุ่น PM 2.5 เฉลี่ยรายวันย้อนหลัง ${daysToShow} วัน${dateRange ? ` (${dateRange})` : ''}`,
                 color: darkMode ? 'rgba(233, 236, 239, 0.9)' : 'rgba(44, 62, 80, 0.9)',
                 font: {
                     size: 16,
@@ -211,7 +217,7 @@ export default function ChartSection({
                     }
                 },
                 min: 0,
-                max: 10
+                max: Math.max(50, ...chartData) // ใช้ค่าสูงสุดของข้อมูลหรือ 50 แล้วแต่ค่าไหนมากกว่า
             },
             y1: {
                 type: 'linear' as const,

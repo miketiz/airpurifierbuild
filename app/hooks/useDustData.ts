@@ -4,6 +4,29 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
 
+// ฟังก์ชันดึงข้อมูลประวัติฝุ่น
+const fetchHistoricalDustData = async (
+    macId?: string,
+    days: number = 7,
+    startDate?: Date | null,
+    endDate?: Date | null
+) => {
+    if (!macId) return null;
+    
+    let url = `/api/avgweek?mac_id=${macId}&days=${days}`;
+    
+    // ถ้ามีการระบุวันเริ่มต้นและวันสิ้นสุด (กรณีเลือกช่วงเวลาเอง)
+    if (startDate && endDate) {
+        const startIsoDate = startDate.toISOString().split('T')[0];
+        const endIsoDate = endDate.toISOString().split('T')[0];
+        url += `&start_date=${startIsoDate}&end_date=${endIsoDate}`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+};
+
 // Hook สำหรับข้อมูลฝุ่นปัจจุบัน
 export function useCurrentDustData(connectionKey?: string) {
   return useQuery({
@@ -61,32 +84,18 @@ export function useCurrentDustData(connectionKey?: string) {
   });
 }
 
-// Hook สำหรับข้อมูลกราฟย้อนหลัง
-export function useHistoricalDustData(macId?: string, timeRange: string = "12:00:00") {
-  return useQuery({
-    queryKey: ["historicalDust", macId, timeRange],
-    queryFn: async () => {
-      if (!macId) return { 
-        status: 1, 
-        data: [], 
-        message: "No mac_id provided" 
-      };
-      
-      try {
-        const response = await axios.get(`/api/avgweek?mac_id=${macId}&timestamp=${Date.now()}`);
-        return response.data;
-      } catch (error: unknown) {
-        console.error('Error fetching weekly average data:', error);
-        return {
-          status: 0,
-          data: [],
-          message: error instanceof Error ? error.message : String(error)
-        };
-      }
-    },
-    enabled: !!macId,
-    refetchInterval: 300000, // รีเฟรชทุก 5 นาที
-    refetchOnWindowFocus: false,
-    staleTime: 60000, // ข้อมูลจะเก่าหลังจาก 1 นาที
-  });
-}
+// Hook สำหรับดึงข้อมูลประวัติฝุ่น
+export const useHistoricalDustData = (
+    macId?: string,
+    days: number = 7,
+    startDate?: Date | null,
+    endDate?: Date | null
+) => {
+    return useQuery({
+        queryKey: ['historicalDust', macId, days, startDate?.toISOString(), endDate?.toISOString()],
+        queryFn: () => fetchHistoricalDustData(macId, days, startDate, endDate),
+        enabled: !!macId,
+        refetchOnWindowFocus: false,
+        staleTime: 5 * 60 * 1000, // 5 นาที
+    });
+};

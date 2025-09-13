@@ -145,6 +145,169 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
+/* เพิ่ม CSS สำหรับตัวเลือกช่วงเวลา */
+
+.time-range-selector {
+    background-color: white;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.dark .time-range-selector {
+    background-color: #1e293b;
+}
+
+.time-range-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.time-btn {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    border-radius: 6px;
+    color: #334155;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.time-btn:hover {
+    background-color: #e2e8f0;
+}
+
+.time-btn.active {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.dark .time-btn {
+    border-color: #334155;
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+.dark .time-btn:hover {
+    background-color: #334155;
+}
+
+.dark .time-btn.active {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.custom-date-picker {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.date-picker-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.date-picker-container label {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.dark .date-picker-container label {
+    color: #94a3b8;
+}
+
+.date-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.date-icon {
+    position: absolute;
+    left: 10px;
+    color: #64748b;
+}
+
+.dark .date-icon {
+    color: #94a3b8;
+}
+
+.date-input {
+    padding: 8px 8px 8px 35px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    width: 180px;
+    color: #334155;
+    background-color: #f8fafc;
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.dark .date-input {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+.dark .date-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.selected-date-range {
+    padding: 10px;
+    background-color: #f1f5f9;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #334155;
+}
+
+.dark .selected-date-range {
+    background-color: #334155;
+    color: #e2e8f0;
+}
+
+/* ปรับ CSS สำหรับ DatePicker (เพิ่มสำหรับโหมด dark) */
+.dark .react-datepicker {
+    background-color: #1e293b;
+    border-color: #334155;
+}
+
+.dark .react-datepicker__header {
+    background-color: #334155;
+    border-color: #475569;
+}
+
+.dark .react-datepicker__current-month,
+.dark .react-datepicker__day-name,
+.dark .react-datepicker__day {
+    color: #e2e8f0;
+}
+
+.dark .react-datepicker__day:hover {
+    background-color: #3b82f6;
+}
+
+.dark .react-datepicker__day--selected,
+.dark .react-datepicker__day--in-range {
+    background-color: #3b82f6;
+    color: white;
+}
+
 /* Dark mode */
 .dark .report-header h1,
 .dark .stat-value {
@@ -189,5 +352,13 @@
 
     .report-container {
         padding: 10px;
+    }
+
+    .time-range-buttons {
+        flex-direction: column;
+    }
+    
+    .custom-date-picker {
+        flex-direction: column;
     }
 }

@@ -9,10 +9,29 @@ type WeeklyAverageDataItem = {
     PM10: number | null;
 };
 
-async function fetchWeeklyAverageFromInfluxDB(macId: string): Promise<WeeklyAverageDataItem[]> {
+async function fetchWeeklyAverageFromInfluxDB(
+    macId: string,
+    days: number = 7,
+    startDate?: string,
+    endDate?: string
+): Promise<WeeklyAverageDataItem[]> {
     try {
-        // ลองใช้ fetch แทน axios และเพิ่ม headers เพิ่มเติม
-        const response = await fetch(`https://fastapi.mm-air.online/avg/week?mac_id=${macId}`, {
+        // สร้าง URL พร้อมพารามิเตอร์ที่จำเป็น
+        let apiUrl = `https://fastapi.mm-air.online/avg/week?mac_id=${macId}`;
+        
+        // ถ้ามีการระบุจำนวนวัน
+        if (days !== 7) {
+            apiUrl += `&days=${days}`;
+        }
+        
+        // ถ้ามีการระบุวันเริ่มต้นและวันสิ้นสุด (กรณีเลือกช่วงเวลาเอง)
+        if (startDate && endDate) {
+            apiUrl += `&start_date=${startDate}&end_date=${endDate}`;
+        }
+        
+        console.log(`Calling API: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -48,6 +67,9 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const macId = searchParams.get('mac_id');
+        const days = parseInt(searchParams.get('days') || '7');
+        const startDate = searchParams.get('start_date');
+        const endDate = searchParams.get('end_date');
         
         if (!macId) {
             return NextResponse.json({
@@ -57,7 +79,7 @@ export async function GET(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const data = await fetchWeeklyAverageFromInfluxDB(macId);
+        const data = await fetchWeeklyAverageFromInfluxDB(macId, days, startDate || undefined, endDate || undefined);
 
         return NextResponse.json({
             status: 1,
