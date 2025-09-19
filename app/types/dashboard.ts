@@ -8,36 +8,37 @@ export interface DustData {
 
 export interface HistoricalDustData {
     time: string;
-    temperature: number | null;
-    humidity: number | null;
-    PM1: number | null;
-    PM2: number | null;
-    PM10: number | null;
+    PM2: number;
+    temperature: number;
+    humidity: number;
 }
 
 export interface ApiDevice {
-    device_id: string | number;
-    user_id: number;
-    device_name: string | null;
-    location: string | null;
-    connection_key: string;
-    mac_id: string;
-    created_at: string;
-    is_active: boolean;
+  device_id: string | number;
+  device_name?: string;
+  mac_id?: string;
+  is_active?: boolean;
+  location?: string; // เพิ่ม location property
+  connection_key?: string;
+  created_at?: string;
+  // properties อื่นๆ จาก API
 }
 
-export type Device = {
-    device_id: string;
-    connection_key: string;
-    device_name?: string;
-    location?: string;
-    is_active?: boolean;
-    mac_id?: string;
-    created_at?: string;
-};
+export interface Device {
+  device_id: string | number;
+  device_name?: string;
+  name?: string;
+  mac_id?: string;
+  is_active?: boolean;
+  location?: string; // เพิ่ม location property
+  connection_key?: string;
+  created_at?: string;
+  // properties อื่นๆ ที่จำเป็น
+}
 
-export type DeviceOptionType = {
-    value: string;
-    label: string;
-    isActive?: boolean;
-};
+// เพิ่ม interface สำหรับ React-Select
+export interface DeviceOptionType {
+  value: string;
+  label: string;
+  isActive?: boolean;
+}

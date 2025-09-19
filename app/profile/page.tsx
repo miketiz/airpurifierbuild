@@ -20,7 +20,14 @@ export default function Profile() {
     const [isLoading, setIsLoading] = useState(true); // เพิ่ม state สำหรับการโหลด
     const [isSaving, setIsSaving] = useState(false); // เพิ่ม state สำหรับการบันทึก
     
-    // เพิ่ม state สำหรับแสดง/ซ่อนรหัสผ่าน
+    // เพิ่ม effect เพื่อทำความสะอาดเมื่อ component unmount
+    useEffect(() => {
+        return () => {
+            // เมื่อ component unmount ให้รีเซ็ต body style
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        };
+    }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -80,16 +87,48 @@ export default function Profile() {
 
     const { data: session, status } = useSession();
 
+    // ปรับปรุง useEffect เพื่อจัดการกับการนำทางและการ unmount
     useEffect(() => {
         if (status === 'loading') {
             setIsLoading(true);
         } else {
-            // จำลองการโหลดข้อมูลเพิ่มเติม
             setTimeout(() => {
                 setIsLoading(false);
-            }, 800); // ให้แสดง loading spinner สักครู่เพื่อให้เห็นเอฟเฟกต์
+            }, 800);
         }
+
+        // จัดการกับ navigation event
+        const handleRouteChange = () => {
+            // รีเซ็ตทุกอย่างเมื่อมีการเปลี่ยนหน้า
+            document.body.style.overflow = '';
+            document.body.className = document.body.className.replace('modal-open', '');
+            setIsChangingPassword(false);
+        };
+
+        // สร้าง event listener (อาจต้องใช้วิธีอื่นกับ Next.js App Router)
+        window.addEventListener('popstate', handleRouteChange);
+
+        return () => {
+            // ทำความสะอาดเมื่อ unmount
+            document.body.style.overflow = '';
+            document.body.className = document.body.className.replace('modal-open', '');
+            window.removeEventListener('popstate', handleRouteChange);
+        };
     }, [status]);
+
+    // อัปเดตฟังก์ชันเปิด modal
+    const openPasswordModal = () => {
+        setIsChangingPassword(true);
+        // กำหนด body style เมื่อเปิด modal
+        document.body.style.overflow = 'hidden';
+    };
+    
+    // อัปเดตฟังก์ชันปิด modal
+    const closePasswordModal = () => {
+        setIsChangingPassword(false);
+        // รีเซ็ต body style
+        document.body.style.overflow = '';
+    };
 
     return (
         <div className="dashboard-container">
@@ -155,7 +194,7 @@ export default function Profile() {
                                 <div className="security-options">
                                     <button
                                         className="change-password-btn"
-                                        onClick={() => setIsChangingPassword(true)}
+                                        onClick={openPasswordModal}
                                     >
                                         <Lock size={18} />
                                         เปลี่ยนรหัสผ่าน
@@ -165,7 +204,17 @@ export default function Profile() {
                         </div>
 
                         {isChangingPassword && (
-                            <div className="modal-overlay">
+                            <div className="modal-overlay" onClick={(e) => {
+                                // ปิด modal เฉพาะเมื่อคลิกที่ overlay ไม่ใช่ modal
+                                if (e.target === e.currentTarget) {
+                                    closePasswordModal();
+                                    setPasswordData({
+                                        currentPassword: '',
+                                        newPassword: '',
+                                        confirmPassword: ''
+                                    });
+                                }
+                            }}>
                                 <div className="password-modal">
                                     <h3>เปลี่ยนรหัสผ่าน</h3>
                                     <form onSubmit={handlePasswordChange}>
@@ -214,7 +263,7 @@ export default function Profile() {
                                                 className="cancel-btn"
                                                 disabled={isSaving}
                                                 onClick={() => {
-                                                    setIsChangingPassword(false);
+                                                    closePasswordModal();
                                                     setPasswordData({
                                                         currentPassword: '',
                                                         newPassword: '',

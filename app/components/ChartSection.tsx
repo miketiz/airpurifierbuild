@@ -41,6 +41,7 @@ interface ChartSectionProps {
     onDataTypeChange: (showMultiple: boolean) => void;
     daysToShow?: number; // เพิ่มพารามิเตอร์นี้
     dateRange?: string; // เพิ่มพารามิเตอร์นี้
+    timeRange?: string; // เพิ่มพารามิเตอร์นี้
 }
 
 export default function ChartSection({
@@ -56,75 +57,165 @@ export default function ChartSection({
     onChartTypeChange,
     onDataTypeChange,
     daysToShow = 7,
-    dateRange = ''
+    dateRange = '',
+    timeRange = '7days' // เพิ่มค่าเริ่มต้น
 }: ChartSectionProps) {
-    // Utility function for button classes
-    const getButtonClass = (isActive: boolean) => 
-        `chart-btn ${isActive ? 'active' : ''} ${darkMode ? 'dark' : ''}`;
+    // ในกรณี timeRange เป็น custom ไม่ต้องจำกัดข้อมูล
+    const shouldLimitData = timeRange !== 'custom';
+    
+    // ปรับฟังก์ชัน limitData ให้ไม่จำกัดข้อมูลถ้า timeRange เป็น custom
+    const limitData = <T,>(data: T[], limit: number): T[] => {
+        // ถ้าเป็น custom range หรือข้อมูลน้อยกว่าหรือเท่ากับจำนวนวัน ให้แสดงทั้งหมด
+        if (!shouldLimitData || data.length <= limit) return data;
+        // ถ้าข้อมูลมีมากกว่า ให้แสดงเฉพาะ limit วันล่าสุด
+        return data.slice(-limit);
+    };
+    
+    // ตัดข้อมูลตามจำนวนวันที่ต้องการแสดง
+    const limitedHours = limitData(chartHours, daysToShow);
+    const limitedChartData = limitData(chartData, daysToShow);
+    const limitedTempData = limitData(chartTempData, daysToShow);
+    const limitedHumidityData = limitData(chartHumidityData, daysToShow);
 
+    // แก้ไขฟังก์ชัน getButtonClass
+    const getButtonClass = (isActive: boolean) => {
+        return `chart-control-btn ${isActive ? 'active' : ''}`;
+    };
+
+    // ฟังก์ชันสำหรับจัดกลุ่มข้อมูลตามวัน
+    const groupDataByDay = <T,>(dates: string[], dataArray: T[]): [string[], T[]] => {
+        // สร้าง Map เพื่อเก็บค่าเฉลี่ยของแต่ละวัน
+        const dayMap = new Map<string, { sum: number, count: number }>();
+        
+        // วนลูปผ่านข้อมูลทั้งหมด
+        dates.forEach((date, index) => {
+            // ใช้วันที่เป็น key
+            if (!dayMap.has(date)) {
+                dayMap.set(date, { sum: Number(dataArray[index] || 0), count: 1 });
+            } else {
+                const current = dayMap.get(date)!;
+                current.sum += Number(dataArray[index] || 0);
+                current.count += 1;
+            }
+        });
+        
+        // แปลงกลับเป็น arrays
+        const uniqueDates: string[] = [];
+        const averagedData: T[] = [];
+        
+        dayMap.forEach((value, key) => {
+            uniqueDates.push(key);
+            // คำนวณค่าเฉลี่ย
+            const average = value.sum / value.count;
+            averagedData.push(average as unknown as T);
+        });
+        
+        return [uniqueDates, averagedData];
+    };
+
+    // ใช้ฟังก์ชันจัดกลุ่มข้อมูลก่อนเตรียมข้อมูลสำหรับกราฟ
+    const [uniqueDates, averagedPm25Data] = groupDataByDay(limitedHours, limitedChartData);
+    const [, averagedTempData] = groupDataByDay(limitedHours, limitedTempData);
+    const [, averagedHumidityData] = groupDataByDay(limitedHours, limitedHumidityData);
+
+    // อัพเดต chartDataConfig โดยใช้ข้อมูลที่ถูกตัดแล้ว
     const chartDataConfig = {
-        labels: chartHours,
+        labels: uniqueDates, // ใช้วันที่ที่ไม่ซ้ำกัน
         datasets: showMultipleData ? [
             {
                 label: 'PM 2.5 (µg/m³)',
-                data: chartData,
-                borderColor: '#e91e63',
-                backgroundColor: 'rgba(233, 30, 99, 0.1)',
+                data: averagedPm25Data, // ใช้ข้อมูลที่เฉลี่ยแล้ว
+                borderColor: '#d81b60', // สีเข้มขึ้น จาก e91e63
+                borderWidth: 3, // เพิ่มความหนาของเส้น
+                backgroundColor: 'rgba(216, 27, 96, 0.15)', // เพิ่มความทึบของสีพื้นหลัง
                 fill: false,
                 tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#e91e63',
+                pointRadius: 5, // เพิ่มขนาดของจุด
+                pointBackgroundColor: '#d81b60',
                 pointBorderColor: darkMode ? '#383c3f' : '#fff',
                 pointBorderWidth: 2,
+                pointHoverRadius: 7, // เพิ่มขนาดจุดเมื่อ hover
                 yAxisID: 'y',
             },
             {
                 label: 'อุณหภูมิ (°C)',
-                data: chartTempData,
-                borderColor: '#3498db',
-                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                data: averagedTempData, // ใช้ข้อมูลที่เฉลี่ยแล้ว
+                borderColor: '#1976d2', // สีเข้มขึ้น จาก 3498db
+                borderWidth: 2.5, // เพิ่มความหนาของเส้น
+                backgroundColor: 'rgba(25, 118, 210, 0.15)', // เพิ่มความทึบของสีพื้นหลัง
                 fill: false,
                 tension: 0.4,
-                pointRadius: 3,
-                pointBackgroundColor: '#3498db',
+                pointRadius: 4,
+                pointBackgroundColor: '#1976d2',
                 pointBorderColor: darkMode ? '#383c3f' : '#fff',
                 pointBorderWidth: 2,
+                pointHoverRadius: 6, // เพิ่มขนาดจุดเมื่อ hover
                 yAxisID: 'y1',
             },
             {
                 label: 'ความชื้น (%)',
-                data: chartHumidityData,
-                borderColor: '#00bcd4',
-                backgroundColor: 'rgba(0, 188, 212, 0.1)',
+                data: averagedHumidityData, // ใช้ข้อมูลที่เฉลี่ยแล้ว
+                borderColor: '#0097a7', // สีเข้มขึ้น จาก 00bcd4
+                borderWidth: 2.5, // เพิ่มความหนาของเส้น
+                backgroundColor: 'rgba(0, 151, 167, 0.15)', // เพิ่มความทึบของสีพื้นหลัง
                 fill: false,
                 tension: 0.4,
-                pointRadius: 3,
-                pointBackgroundColor: '#00bcd4',
+                pointRadius: 4,
+                pointBackgroundColor: '#0097a7',
                 pointBorderColor: darkMode ? '#383c3f' : '#fff',
                 pointBorderWidth: 2,
+                pointHoverRadius: 6, // เพิ่มขนาดจุดเมื่อ hover
                 yAxisID: 'y2',
             }
         ] : [
             {
                 label: 'PM 2.5 (µg/m³)',
-                data: chartData,
-                borderColor: '#e91e63',
-                backgroundColor: 'rgba(233, 30, 99, 0.1)',
+                data: averagedPm25Data, // ใช้ข้อมูลที่เฉลี่ยแล้ว
+                borderColor: '#d81b60', // สีเข้มขึ้น จาก e91e63
+                borderWidth: 3, // เพิ่มความหนาของเส้น
+                backgroundColor: darkMode ?
+                    'rgba(216, 27, 96, 0.2)' : // ในโหมดมืดใช้ความทึบน้อยกว่า
+                    'rgba(216, 27, 96, 0.25)', // ในโหมดสว่างใช้ความทึบมากกว่า
                 fill: true,
                 tension: 0.4,
-                pointRadius: 4,
-                pointBackgroundColor: '#e91e63',
+                pointRadius: 5, // เพิ่มขนาดของจุด
+                pointBackgroundColor: '#d81b60',
                 pointBorderColor: darkMode ? '#383c3f' : '#fff',
                 pointBorderWidth: 2,
+                pointHoverRadius: 7, // เพิ่มขนาดจุดเมื่อ hover
             },
         ],
     };
 
+    // ถ้า chartType === 'bar' ให้ปรับแต่งกราฟแท่งให้เข้มขึ้น
+    if (chartType === 'bar') {
+        if (showMultipleData) {
+            chartDataConfig.datasets[0].backgroundColor = darkMode ? 'rgba(216, 27, 96, 0.7)' : 'rgba(216, 27, 96, 0.8)';
+            chartDataConfig.datasets[1].backgroundColor = darkMode ? 'rgba(25, 118, 210, 0.7)' : 'rgba(25, 118, 210, 0.8)';
+            chartDataConfig.datasets[2].backgroundColor = darkMode ? 'rgba(0, 151, 167, 0.7)' : 'rgba(0, 151, 167, 0.8)';
+
+            // เพิ่ม border ให้กับแท่ง
+            chartDataConfig.datasets[0].borderWidth = 1;
+            chartDataConfig.datasets[1].borderWidth = 1;
+            chartDataConfig.datasets[2].borderWidth = 1;
+        } else {
+            // สำหรับกราฟแท่งที่แสดง PM2.5 อย่างเดียว
+            chartDataConfig.datasets[0].backgroundColor = darkMode ?
+                'rgba(216, 27, 96, 0.7)' :
+                'rgba(216, 27, 96, 0.8)';
+            chartDataConfig.datasets[0].borderWidth = 1;
+            chartDataConfig.datasets[0].borderColor = darkMode ?
+                'rgba(216, 27, 96, 0.9)' :
+                'rgba(216, 27, 96, 1.0)';
+        }
+    }
+
+    // แก้ไขการประกาศ ChartOptions
     const chartOptions: ChartOptions<'line' | 'bar'> = {
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
-            mode: 'index' as const,
+            mode: 'index',
             intersect: false,
         },
         plugins: {
@@ -142,9 +233,15 @@ export default function ChartSection({
             },
             title: {
                 display: true,
-                text: showMultipleData 
-                    ? `ข้อมูลสิ่งแวดล้อมเฉลี่ยรายวันย้อนหลัง ${daysToShow} วัน${dateRange ? ` (${dateRange})` : ''}` 
-                    : `ค่าฝุ่น PM 2.5 เฉลี่ยรายวันย้อนหลัง ${daysToShow} วัน${dateRange ? ` (${dateRange})` : ''}`,
+                text: showMultipleData
+                    ? `ข้อมูลสิ่งแวดล้อมเฉลี่ยรายวัน ${timeRange === 'custom'
+                        ? dateRange
+                        : `ย้อนหลัง ${daysToShow} วัน${limitedHours.length < daysToShow ? ` (แสดงเฉพาะ ${limitedHours.length} วันที่มีข้อมูล)` : ''}`
+                    }`
+                    : `ค่าฝุ่น PM 2.5 เฉลี่ยรายวัน ${timeRange === 'custom'
+                        ? dateRange
+                        : `ย้อนหลัง ${daysToShow} วัน${limitedHours.length < daysToShow ? ` (แสดงเฉพาะ ${limitedHours.length} วันที่มีข้อมูล)` : ''}`
+                    }`,
                 color: darkMode ? 'rgba(233, 236, 239, 0.9)' : 'rgba(44, 62, 80, 0.9)',
                 font: {
                     size: 16,
@@ -161,11 +258,11 @@ export default function ChartSection({
                 cornerRadius: 8,
                 displayColors: true,
                 callbacks: {
-                    label: function(context) {
+                    label: function (context) {
                         const label = context.dataset.label || '';
                         const value = context.parsed.y;
                         if (typeof value !== 'number') return `${label}: N/A`;
-                        
+
                         if (label.includes('PM 2.5')) {
                             return `${label}: ${value.toFixed(1)} µg/m³`;
                         } else if (label.includes('อุณหภูมิ')) {
@@ -178,7 +275,12 @@ export default function ChartSection({
                 }
             }
         },
-        scales: showMultipleData ? {
+        scales: {} // เริ่มต้นเป็น object เปล่า
+    };
+
+    // กำหนดค่า scales หลังจากนั้น
+    if (showMultipleData) {
+        chartOptions.scales = {
             x: {
                 grid: {
                     display: false,
@@ -193,16 +295,16 @@ export default function ChartSection({
                 }
             },
             y: {
-                type: 'linear' as const,
+                type: 'linear',
                 display: true,
-                position: 'left' as const,
+                position: 'left',
                 title: {
                     display: true,
                     text: 'PM 2.5 (µg/m³)',
-                    color: '#e91e63',
+                    color: '#d81b60',
                     font: {
                         family: "'Kanit', sans-serif",
-                        size: 12,
+                        size: 13,
                         weight: 'bold'
                     }
                 },
@@ -210,26 +312,27 @@ export default function ChartSection({
                     color: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
                 },
                 ticks: {
-                    color: '#e91e63',
+                    color: '#d81b60',
                     font: {
                         family: "'Kanit', sans-serif",
-                        size: 11
+                        size: 11,
+                        weight: 600
                     }
                 },
                 min: 0,
-                max: Math.max(50, ...chartData) // ใช้ค่าสูงสุดของข้อมูลหรือ 50 แล้วแต่ค่าไหนมากกว่า
+                max: Math.max(50, ...limitedChartData)
             },
             y1: {
-                type: 'linear' as const,
+                type: 'linear',
                 display: true,
-                position: 'right' as const,
+                position: 'right',
                 title: {
                     display: true,
                     text: 'อุณหภูมิ (°C)',
-                    color: '#3498db',
+                    color: '#1976d2',
                     font: {
                         family: "'Kanit', sans-serif",
-                        size: 12,
+                        size: 13,
                         weight: 'bold'
                     }
                 },
@@ -237,26 +340,29 @@ export default function ChartSection({
                     drawOnChartArea: false,
                 },
                 ticks: {
-                    color: '#3498db',
+                    color: '#1976d2',
                     font: {
                         family: "'Kanit', sans-serif",
-                        size: 11
+                        size: 11,
+                        weight:600
                     }
                 },
                 min: 20,
                 max: 35
             },
             y2: {
-                type: 'linear' as const,
+                type: 'linear',
                 display: false,
-                position: 'right' as const,
+                position: 'right',
                 min: 0,
                 max: 100,
                 ticks: {
-                    color: '#00bcd4',
+                    color: '#0097a7',
                 }
             }
-        } : {
+        };
+    } else {
+        chartOptions.scales = {
             y: {
                 beginAtZero: true,
                 grid: {
@@ -267,7 +373,10 @@ export default function ChartSection({
                     font: {
                         family: "'Kanit', sans-serif",
                     }
-                }
+                },
+                min: 0,
+                // เพิ่ม max สำหรับกรณี PM2.5 อย่างเดียว
+                max: Math.max(50, ...limitedChartData)
             },
             x: {
                 grid: {
@@ -280,9 +389,9 @@ export default function ChartSection({
                     },
                     maxTicksLimit: 8
                 }
-            },
-        },
-    };
+            }
+        };
+    }
 
     return (
         <div className="chart-container">
@@ -291,34 +400,42 @@ export default function ChartSection({
                 <div className={`chart-controls ${darkMode ? 'dark' : ''}`}>
                     <div className="chart-control-group">
                         <span className="chart-control-label">ประเภทกราฟ:</span>
-                        <button
-                            onClick={() => onChartTypeChange('line')}
-                            className={getButtonClass(chartType === 'line')}
-                        >
-                            เส้น
-                        </button>
-                        <button
-                            onClick={() => onChartTypeChange('bar')}
-                            className={getButtonClass(chartType === 'bar')}
-                        >
-                            แท่ง
-                        </button>
+                        <div className="chart-control-buttons">
+                            <button
+                                onClick={() => onChartTypeChange('line')}
+                                className={getButtonClass(chartType === 'line')}
+                                data-tooltip="แสดงกราฟแบบเส้น"
+                            >
+                                <span>กราฟเส้น</span>
+                            </button>
+                            <button
+                                onClick={() => onChartTypeChange('bar')}
+                                className={getButtonClass(chartType === 'bar')}
+                                data-tooltip="แสดงกราฟแบบแท่ง"
+                            >
+                                <span>กราฟแท่ง</span>
+                            </button>
+                        </div>
                     </div>
-                    
+
                     <div className="chart-control-group">
                         <span className="chart-control-label">ข้อมูล:</span>
-                        <button
-                            onClick={() => onDataTypeChange(false)}
-                            className={getButtonClass(!showMultipleData)}
-                        >
-                            PM 2.5 อย่างเดียว
-                        </button>
-                        <button
-                            onClick={() => onDataTypeChange(true)}
-                            className={getButtonClass(showMultipleData)}
-                        >
-                            ข้อมูลรวม
-                        </button>
+                        <div className="chart-control-buttons">
+                            <button
+                                onClick={() => onDataTypeChange(false)}
+                                className={getButtonClass(!showMultipleData)}
+                                data-tooltip="แสดงเฉพาะข้อมูล PM 2.5"
+                            >
+                                <span>PM 2.5 อย่างเดียว</span>
+                            </button>
+                            <button
+                                onClick={() => onDataTypeChange(true)}
+                                className={getButtonClass(showMultipleData)}
+                                data-tooltip="แสดงข้อมูล PM 2.5, อุณหภูมิ, และความชื้น"
+                            >
+                                <span>ข้อมูลรวม</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

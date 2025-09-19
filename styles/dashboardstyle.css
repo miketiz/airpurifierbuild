@@ -343,6 +343,18 @@
     }
 }
 
+/* ปรับปรุง responsive สำหรับ dashboard cards */
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .card {
+        padding: 16px;
+    }
+}
+
 /* เพิ่มสไตล์สำหรับการแสดงสถานะการโหลดกราฟ */
 .loading-chart {
     display: flex;
@@ -363,199 +375,183 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    padding: 15px;
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 12px;
+    padding: 18px;
+    background: rgba(235, 252, 235, 0.5);
+    border-radius: 16px;
     gap: 15px;
     flex-wrap: wrap;
+    box-shadow: 0 4px 12px rgba(38, 196, 46, 0.08);
+    border: 1px solid rgba(38, 196, 46, 0.1);
+    transition: all 0.3s ease;
 }
 
 .chart-controls.dark {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(27, 46, 27, 0.6);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(29, 180, 90, 0.3);
 }
 
 .chart-control-group {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
     flex-wrap: wrap;
+    position: relative;
 }
 
 .chart-control-label {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
-    color: #374151;
+    color: #1f2937;
     margin-right: 5px;
+    transition: color 0.3s;
 }
 
 .chart-controls.dark .chart-control-label {
     color: #e5e7eb;
 }
 
-.chart-btn {
-    padding: 8px 16px;
-    border-radius: 8px;
+/* สไตล์ปุ่มควบคุมกราฟที่ปรับปรุงแล้ว */
+.chart-control-btn {
+    padding: 10px 18px;
+    border-radius: 12px;
     border: none;
-    background-color: #e5e7eb;
-    color: #374151;
+    background-color: #f3f4f6;
+    color: #4b5563;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     font-family: 'Kanit', sans-serif;
     white-space: nowrap;
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
 }
 
-.chart-btn.dark {
-    background-color: #4b5563;
-    color: #e5e7eb;
+.chart-controls.dark .chart-control-btn {
+    background-color: #374151;
+    color: #d1d5db;
+    border: 1px solid #4b5563;
 }
 
-.chart-btn.active {
-    background-color: #e91e63;
+/* สไตล์ปุ่มที่ถูกเลือก */
+.chart-control-btn.active {
+    background-color: #26c42e;
     color: white;
-}
-
-.chart-btn:hover {
+    box-shadow: 0 4px 12px rgba(38, 196, 46, 0.25);
+    font-weight: 600;
     transform: translateY(-1px);
+}
+
+.chart-controls.dark .chart-control-btn.active {
+    background-color: #1db45a;
+    box-shadow: 0 4px 12px rgba(29, 180, 90, 0.3);
+}
+
+/* เอฟเฟกต์เมื่อ hover */
+.chart-control-btn:hover:not(.active) {
+    background-color: #e5e7eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+    border-color: rgba(38, 196, 46, 0.3);
+}
+
+.chart-controls.dark .chart-control-btn:hover:not(.active) {
+    background-color: #4b5563;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    border-color: rgba(29, 180, 90, 0.5);
 }
 
-.chart-btn:active {
+/* เอฟเฟกต์เมื่อกด */
+.chart-control-btn:active {
     transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* Responsive adjustments for chart controls */
+/* เอฟเฟกต์คลื่นเมื่อคลิก (ripple effect) */
+.chart-control-btn::after {
+    content: '';
+    position: absolute;
+    background: rgba(255, 255, 255, 0.3);
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.5s, opacity 0.6s;
+    left: calc(50% - 50px);
+    top: calc(50% - 50px);
+    z-index: -1;
+}
+
+.chart-control-btn:active::after {
+    transform: scale(3);
+    opacity: 0;
+    transition: 0s;
+}
+
+/* ปรับสำหรับหน้าจอขนาดเล็ก */
 @media (max-width: 768px) {
     .chart-controls {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 15px !important;
-        padding: 10px !important;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 15px;
+        gap: 12px;
     }
     
     .chart-control-group {
-        justify-content: center !important;
-        flex-wrap: wrap !important;
-        gap: 8px !important;
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
     }
-
+    
     .chart-control-label {
-        width: 100%;
         text-align: center;
         margin-bottom: 5px;
-        margin-right: 0;
-    }
-
-    .chart-btn {
-        flex: 1;
-        min-width: 120px;
-        padding: 10px 12px;
         font-size: 14px;
     }
+    
+    .chart-control-btn {
+        padding: 12px;
+        font-size: 14px;
+        text-align: center;
+        border-radius: 10px;
+    }
+    
+    /* ปรับให้มี sub-group สำหรับปุ่มเรียงข้างกัน */
+    .chart-control-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
 }
 
-.dark .card,
-.dark .status-card,
-.dark .dust-card,
-.dark .env-card,
-.dark .chart-card {
-    background: linear-gradient(120deg, #232d23 0%, #1b2e1b 100%);
-    border: 1.5px solid #1db45a;
+/* สร้าง tooltip เมื่อ hover ปุ่ม */
+.chart-control-btn::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    background-color: #333;
     color: #fff;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    opacity: 0;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
 }
 
-.dark .user-info {
-    background: linear-gradient(120deg, #232d23 0%, #1b2e1b 100%);
-    border: 1.5px solid #1db45a;
-    color: #fff;
-}
-
-/* เพิ่ม CSS สำหรับแสดงการอัพเดต */
-.update-status-container {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: var(--card-bg);
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.last-updated-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.time-value {
-  font-weight: 500;
-  margin-left: 5px;
-  color: var(--text-primary);
-}
-
-.update-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.update-count {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.update-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: #4ade80;
-  display: inline-block;
-  animation: pulse 2s infinite;
-}
-
-.refreshing {
-  font-size: 0.8rem;
-  color: #60a5fa;
-}
-
-.refresh-button {
-  padding: 8px 15px;
-  border-radius: 8px;
-  border: none;
-  background-color: #3b82f6;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.refresh-button:hover {
-  background-color: #2563eb;
-}
-
-.refresh-button:disabled {
-  background-color: #93c5fd;
-  cursor: not-allowed;
-}
-
-/* Animation เมื่อมีการอัพเดตข้อมูล */
-.pulse-update {
-  animation: pulse-data 1s ease;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.4; }
-  100% { opacity: 1; }
-}
-
-@keyframes pulse-data {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); color: #3b82f6; }
-  100% { transform: scale(1); }
+.chart-control-btn:hover::before {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.9;
 }
 
 /* ===== RESPONSIVE DESIGN ===== */

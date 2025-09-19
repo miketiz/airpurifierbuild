@@ -1,7 +1,7 @@
 "use client";
 
 import Sidebar from "../components/Sidebar";
-import { BarChart, Download, Calendar } from "lucide-react";
+import { BarChart, Download, Calendar, RefreshCcw } from "lucide-react";
 import "@/styles/reportstyle.css";
 import {
     Chart as ChartJS,
@@ -14,8 +14,6 @@ import {
     Legend,
 } from 'chart.js';
 import { useEffect, useState } from "react";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import EmptyDeviceState from "../components/EmptyDeviceState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ChartSection from "../components/ChartSection";
@@ -29,22 +27,23 @@ import { Device, HistoricalDustData } from "../types/dashboard";
 import { convertDevicesData } from "../utils/dashboardUtils";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import  usePDFExporter  from "../components/PDFExporter";
 
-// Register autoTable with jsPDF
-declare module 'jspdf' {
-    interface jsPDF {
-        autoTable: typeof autoTable;
-        lastAutoTable?: {
-            finalY: number;
-        };
-    }
-}
+// // Register autoTable with jsPDF
+// declare module 'jspdf' {
+//     interface jsPDF {
+//         autoTable: typeof autoTable;
+//         lastAutoTable?: {
+//             finalY: number;
+//         };
+//     }
+// }
 
-// Type-safe registration of autoTable plugin
-interface jsPDFWithAutoTable {
-    autoTable: typeof autoTable;
-}
-(jsPDF.prototype as jsPDFWithAutoTable).autoTable = autoTable;
+// // Type-safe registration of autoTable plugin
+// interface jsPDFWithAutoTable {
+//     autoTable: typeof autoTable;
+// }
+// (jsPDF.prototype as jsPDFWithAutoTable).autoTable = autoTable;
 
 ChartJS.register(
     CategoryScale,
@@ -55,6 +54,16 @@ ChartJS.register(
     Tooltip,
     Legend
 );
+
+// เพิ่ม interface สำหรับ GroupedDustData
+interface GroupedDustData {
+    date: Date;
+    displayDate: string;
+    PM2: number;
+    temperature: number;
+    humidity: number;
+    count: number;
+}
 
 export default function Reports() {
     // State สำหรับข้อมูลรายงาน
@@ -130,30 +139,76 @@ export default function Reports() {
 
         if (historicalData?.status === 1 && historicalData.data && Array.isArray(historicalData.data) && historicalData.data.length > 0) {
             // เรียงลำดับข้อมูลตามเวลา
-            const sortedData = [...historicalData.data].sort((a, b) => 
+            const sortedData = [...historicalData.data].sort((a: HistoricalDustData, b: HistoricalDustData) => 
                 new Date(a.time).getTime() - new Date(b.time).getTime()
             );
             
-            // แปลงข้อมูลสำหรับกราฟ
-            const times = sortedData.map((item: HistoricalDustData) => {
+            // จัดกลุ่มข้อมูลตามวันเพื่อป้องกันการแสดงวันที่ซ้ำกัน
+            const groupedByDay = new Map<string, GroupedDustData>();
+            
+            sortedData.forEach((item: HistoricalDustData) => {
+                // ตัดเวลาออกเพื่อใช้เฉพาะวันที่เป็นตัวจัดกลุ่ม
                 const date = new Date(item.time);
-                return date.toLocaleDateString('th-TH', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    weekday: 'short'
+                const dateKey = date.toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'numeric', 
+                    day: 'numeric' 
                 });
+                
+                // เพิ่ม nullish coalescing operator เพื่อให้ค่าเป็น 0 หากไม่มีข้อมูล
+                const pm2Value = item?.PM2 ?? 0;
+                const tempValue = item?.temperature ?? 0;
+                const humidityValue = item?.humidity ?? 0;
+                
+                if (!groupedByDay.has(dateKey)) {
+                    groupedByDay.set(dateKey, {
+                        date: date,
+                        displayDate: date.toLocaleDateString('th-TH', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            weekday: 'short'
+                        }),
+                        PM2: pm2Value,
+                        temperature: tempValue,
+                        humidity: humidityValue,
+                        count: 1
+                    });
+                } else {
+                    const current = groupedByDay.get(dateKey)!; // ใส่ ! เพื่อบอก TypeScript ว่าไม่เป็น undefined แน่นอน
+                    current.PM2 += pm2Value;
+                    current.temperature += tempValue;
+                    current.humidity += humidityValue;
+                    current.count += 1;
+                }
             });
-            const pm25Values = sortedData.map((item: HistoricalDustData) => item.PM2 || 0);
-            const tempValues = sortedData.map((item: HistoricalDustData) => item.temperature || 0);
-            const humidityValues = sortedData.map((item: HistoricalDustData) => item.humidity || 0);
+            
+            // คำนวณค่าเฉลี่ยและสร้างอาร์เรย์ข้อมูลใหม่
+            const groupedData: GroupedDustData[] = Array.from(groupedByDay.values());
+            
+            // จัดเรียงตามวันที่อีกครั้ง
+            groupedData.sort((a, b) => a.date.getTime() - b.date.getTime());
+            
+            // จำกัดข้อมูลตาม daysToFetch
+            const limitedData = daysToFetch > 0 && daysToFetch < groupedData.length
+                ? groupedData.slice(-daysToFetch)
+                : groupedData;
+            
+            // Log ข้อมูล
+            console.log(`Showing ${limitedData.length} days of data (after grouping) out of ${groupedData.length} available days`);
+            
+            // แปลงข้อมูลสำหรับกราฟจากข้อมูลที่จัดกลุ่มแล้ว
+            const times = limitedData.map(item => item.displayDate);
+            const pm25Values = limitedData.map(item => item.PM2 / item.count);
+            const tempValues = limitedData.map(item => item.temperature / item.count);
+            const humidityValues = limitedData.map(item => item.humidity / item.count);
 
             setChartHours(times);
             setChartPm25Data(pm25Values);
             setChartTempData(tempValues);
             setChartHumidityData(humidityValues);
 
-            // อัพเดตข้อมูลสำหรับรายงาน - แก้ไข type error
-            const average = (pm25Values.reduce((sum: number, val: number) => sum + val, 0) / pm25Values.length).toFixed(1);
+            // อัพเดตข้อมูลสำหรับรายงาน
+            const average = (pm25Values.reduce((sum, val) => sum + val, 0) / pm25Values.length).toFixed(1);
             setWeeklyData({
                 labels: times,
                 values: pm25Values,
@@ -170,100 +225,10 @@ export default function Reports() {
                 average: "0.0"
             });
         }
-    }, [historicalData, selectedDevice]);
+    }, [historicalData, selectedDevice, daysToFetch]); // เพิ่ม daysToFetch ใน dependencies
 
-    const exportToPDF = () => {
-        const doc = new jsPDF();
-        
-        // หัวข้อรายงาน
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
-        doc.text('PM 2.5 Weekly Report', 14, 20);
-        
-        // วันที่ออกรายงาน
-        const today = new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-        doc.text(`Report Generated: ${today}`, 14, 42);
-        
-        // สร้างข้อมูลตาราง - แก้ไขการแสดงวันที่
-        const tableData = weeklyData.labels.map((label, index) => {
-            // แปลงวันที่ให้แสดงเป็นภาษาอังกฤษ
-            let formattedDate = label;
-            
-            // ถ้ามีข้อมูลจาก historicalData ให้ใช้วันที่จริง
-            if (historicalData?.data && historicalData.data[index]) {
-                const date = new Date(historicalData.data[index].time);
-                formattedDate = date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-            }
-            
-            return [
-                formattedDate,
-                weeklyData.values[index].toFixed(2)
-            ];
-        });
-
-        // สร้างตารางข้อมูล
-        autoTable(doc, {
-            head: [['Date', 'PM 2.5 (µg/m³)']],
-            body: tableData,
-            startY: 52,
-            margin: {left: 37, right: 37},
-            tableWidth: 'auto',
-            styles: {
-                font: "helvetica",
-                fontSize: 11,
-                cellPadding: 8,
-                halign: 'center'
-            },
-            headStyles: {
-                fillColor: [233, 30, 99],
-                textColor: [255, 255, 255],
-                fontStyle: 'bold',
-                halign: 'center',
-                fontSize: 12
-            },
-            alternateRowStyles: {
-                fillColor: [248, 249, 250]
-            },
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 70 },
-                1: { halign: 'center', cellWidth: 70 }
-            }
-        });
-
-        // เพิ่มค่าเฉลี่ย
-        const finalY = doc.lastAutoTable?.finalY || 52;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.setTextColor(233, 30, 99);
-        doc.text(`Weekly Average: ${weeklyData.average} µg/m³`, 14, finalY + 20);
-        
-        // เพิ่มสถิติเพิ่มเติม
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        
-        const maxValue = weeklyData.values.length > 0 ? Math.max(...weeklyData.values).toFixed(1) : '0.0';
-        const minValue = weeklyData.values.length > 0 ? Math.min(...weeklyData.values).toFixed(1) : '0.0';
-        
-        doc.text(`Highest Value: ${maxValue} µg/m³`, 14, finalY + 35);
-        doc.text(`Lowest Value: ${minValue} µg/m³`, 14, finalY + 45);
-        doc.text(`Total Data Points: ${weeklyData.values.length}`, 14, finalY + 55);
-        
-        const filedate = new Date().toISOString().split('T')[0];
-        const devicename = selectedDevice?.device_name || 'Unknown_Device';
-
-        const fileName = `PM25_Weekly_Report_${devicename}_${filedate}.pdf`;
-        doc.save(fileName);
-    };
+    // แก้ไขการเรียกใช้ PDFExporter
+    const pdfExporter = usePDFExporter({ weeklyData, selectedDevice });
 
     // ฟังก์ชันรีเฟรชข้อมูล
     const refreshDeviceList = () => {
@@ -278,7 +243,7 @@ export default function Reports() {
         setTimeRange(range);
         
         const now = new Date();
-        let newStartDate: Date;
+        let newStartDate: Date = new Date(); // กำหนดค่าเริ่มต้น
         
         switch(range) {
             case '7days':
@@ -302,14 +267,6 @@ export default function Reports() {
         setEndDate(now);
     };
     
-    // ปรับปรุงส่วนคำนวณวันระหว่าง startDate และ endDate
-    useEffect(() => {
-        if (timeRange === 'custom' && startDate && endDate) {
-            const days = calculateDaysBetween(startDate, endDate);
-            setDaysToFetch(days);
-        }
-    }, [startDate, endDate, timeRange]);
-
     // ปรับปรุงฟังก์ชัน calculateDaysBetween ให้รับ null ได้
     const calculateDaysBetween = (start: Date | null, end: Date | null) => {
         if (!start || !end) return 0;
@@ -323,8 +280,27 @@ export default function Reports() {
         if (timeRange === 'custom' && startDate && endDate) {
             const days = calculateDaysBetween(startDate, endDate);
             setDaysToFetch(days);
+            
+            // ทำให้เกิดการ refetch ข้อมูลโดยอัปเดต query key
+            if (selectedDevice?.mac_id) {
+                queryClient.invalidateQueries({ 
+                    queryKey: ['historicalDust', selectedDevice.mac_id]
+                });
+            }
+            
+            // เพิ่ม log เพื่อ debug
+            console.log(`Date range changed: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}, days: ${days}`);
         }
-    }, [startDate, endDate, timeRange]);
+    }, [startDate, endDate, timeRange, selectedDevice?.mac_id, queryClient]);
+
+    // เพิ่มการ force refetch ข้อมูลเมื่อเปลี่ยน timeRange
+    useEffect(() => {
+        if (selectedDevice?.mac_id) {
+            queryClient.invalidateQueries({ 
+                queryKey: ['historicalDust', selectedDevice.mac_id]
+            });
+        }
+    }, [timeRange, selectedDevice?.mac_id, queryClient]);
 
     return (
         <div className={`dashboard-container ${darkMode ? 'dark' : ''}`}>
@@ -341,7 +317,7 @@ export default function Reports() {
                             <div className="report-actions">
                                 <button 
                                     className="export-btn"
-                                    onClick={exportToPDF}
+                                    onClick={pdfExporter.exportToPDF}
                                 >
                                     <Download size={20} />
                                     ส่งออกรายงาน
@@ -433,6 +409,21 @@ export default function Reports() {
                                             />
                                         </div>
                                     </div>
+
+                                    <button 
+                                        className="refresh-btn"
+                                        onClick={() => {
+                                            if (selectedDevice?.mac_id) {
+                                                // ทำให้เกิดการ refetch ข้อมูลโดยอัปเดต query key
+                                                queryClient.invalidateQueries({ 
+                                                    queryKey: ['historicalDust', selectedDevice.mac_id]
+                                                });
+                                                console.log('Manually refreshing data...');
+                                            }
+                                        }}
+                                    >
+                                        <RefreshCcw size={16} /> รีโหลดข้อมูล
+                                    </button>
                                 </div>
                             )}
                             

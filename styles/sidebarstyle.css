@@ -198,6 +198,30 @@
         margin-left: 0 !important;
         padding: 80px 10px 20px 10px;
     }
+
+    /* เพิ่มการปรับแต่ง overlay */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    .sidebar-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    
+    /* แก้ไขปัญหา mobile scroll */
+    body.sidebar-open {
+        overflow: hidden;
+    }
 }
 
 
@@ -227,4 +251,65 @@
 
 .dark .mobile-menu-button:hover {
     background: var(--sidebar-hover);
+}
+
+/* เพิ่มใน styles/sidebarstyle.css */
+.confirm-logout-toast {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.confirm-logout-message {
+    font-size: 15px;
+    font-weight: 500;
+    margin: 0;
+    text-align: center;
+}
+
+.confirm-logout-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.confirm-logout-buttons button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    font-family: 'Kanit', sans-serif;
+}
+
+.confirm-logout-buttons .confirm-btn {
+    background-color: #ef4444;
+    color: white;
+}
+
+.confirm-logout-buttons .confirm-btn:hover {
+    background-color: #dc2626;
+}
+
+.confirm-logout-buttons .cancel-btn {
+    background-color: #e5e7eb;
+    color: #4b5563;
+}
+
+.confirm-logout-buttons .cancel-btn:hover {
+    background-color: #d1d5db;
+}
+
+/* สำหรับ Dark Mode */
+.dark .confirm-logout-buttons .cancel-btn {
+    background-color: #374151;
+    color: #e5e7eb;
+}
+
+.dark .confirm-logout-buttons .cancel-btn:hover {
+    background-color: #4b5563;
 }

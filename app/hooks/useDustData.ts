@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import { useEffect, useState } from 'react';
 
 
 // ฟังก์ชันดึงข้อมูลประวัติฝุ่น
@@ -13,18 +14,62 @@ const fetchHistoricalDustData = async (
 ) => {
     if (!macId) return null;
     
-    let url = `/api/avgweek?mac_id=${macId}&days=${days}`;
+    let url = `/api/avgweek?mac_id=${macId}`;
+    
+    // ส่ง timezone offset ไปแบบถูกต้อง (เป็นนาที และเป็นค่าบวกหรือลบ)
+    const timezoneOffset = -new Date().getTimezoneOffset(); // เปลี่ยนเป็นค่าบวกสำหรับโซนเวลาตะวันออก
+    url += `&tz_offset=${timezoneOffset}`;
     
     // ถ้ามีการระบุวันเริ่มต้นและวันสิ้นสุด (กรณีเลือกช่วงเวลาเอง)
     if (startDate && endDate) {
-        const startIsoDate = startDate.toISOString().split('T')[0];
-        const endIsoDate = endDate.toISOString().split('T')[0];
-        url += `&start_date=${startIsoDate}&end_date=${endIsoDate}`;
+        // เพิ่มเวลาให้กับวันที่เลือก เพื่อให้ครอบคลุมทั้งวัน
+        const startWithTime = new Date(startDate);
+        startWithTime.setHours(0, 0, 0, 0); // เริ่มต้นวันที่ 00:00:00
+        
+        const endWithTime = new Date(endDate);
+        endWithTime.setHours(23, 59, 59, 999); // สิ้นสุดวันที่ 23:59:59
+        
+        // ต้องแน่ใจว่าใช้ UTC เพื่อหลีกเลี่ยงปัญหา timezone
+        const startIsoDate = startWithTime.toISOString();
+        const endIsoDate = endWithTime.toISOString();
+        
+        url += `&start_date=${startIsoDate}&end_date=${endIsoDate}&is_custom=true`;
+        console.log(`API call with custom date range: ${startIsoDate} to ${endIsoDate}`);
+        
+        // เพิ่ม debug log
+        console.log(`Local dates: ${startWithTime.toLocaleString()} to ${endWithTime.toLocaleString()}`);
+    } else {
+        // ถ้าไม่มีการระบุช่วงวัน แต่มีการระบุจำนวนวัน
+        url += `&days=${days}&is_custom=false`;
+        console.log(`API call with days parameter: ${days}`);
     }
     
-    const response = await fetch(url);
-    const data = await response.json();
-    return data;
+    console.log(`Fetching data from: ${url}`);
+    
+    try {
+        const response = await fetch(url, {
+            next: { revalidate: 0 } // ไม่ใช้ cache
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // เพิ่ม debug log
+        if (data?.data?.length > 0) {
+            const firstDate = new Date(data.data[0].time);
+            const lastDate = new Date(data.data[data.data.length - 1].time);
+            console.log(`Received data from ${firstDate.toLocaleString()} to ${lastDate.toLocaleString()}`);
+            console.log(`Total data points: ${data.data.length}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error fetching historical dust data:', error);
+        throw error;
+    }
 };
 
 // Hook สำหรับข้อมูลฝุ่นปัจจุบัน
@@ -91,8 +136,20 @@ export const useHistoricalDustData = (
     startDate?: Date | null,
     endDate?: Date | null
 ) => {
+    // เพิ่ม state สำหรับเก็บค่า timeRange
+    const [timeRange, setTimeRange] = useState<string>('7days');
+    
+    // อัพเดต timeRange เมื่อ days เปลี่ยน
+    useEffect(() => {
+        if (days === 7) setTimeRange('7days');
+        else if (days === 14) setTimeRange('14days');
+        else if (days === 30) setTimeRange('30days');
+        else setTimeRange('custom');
+    }, [days]);
+    
     return useQuery({
-        queryKey: ['historicalDust', macId, days, startDate?.toISOString(), endDate?.toISOString()],
+        // เพิ่ม timeRange ใน queryKey เพื่อให้ invalidate เมื่อเปลี่ยน range
+        queryKey: ['historicalDust', macId, days, startDate?.toISOString(), endDate?.toISOString(), timeRange],
         queryFn: () => fetchHistoricalDustData(macId, days, startDate, endDate),
         enabled: !!macId,
         refetchOnWindowFocus: false,

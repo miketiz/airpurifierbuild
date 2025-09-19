@@ -3,11 +3,11 @@ import "@/styles/sidebarstyle.css";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Home, Settings, User, BarChart, Fan, Menu, LogOut } from "lucide-react";
+import { Home, Settings, User, BarChart, Fan, Menu, LogOut, X } from "lucide-react";
 import logo from "@/public/img/Logo/102.ico";
 import { useTheme } from "../contexts/ThemeContext";
 import { signOut } from "next-auth/react";
-import { toast } from "react-hot-toast"; // เพิ่ม import toast
+import { toast } from "react-hot-toast";
 
 interface SidebarProps {
     className?: string;
@@ -16,21 +16,101 @@ interface SidebarProps {
 export default function Sidebar({ className }: SidebarProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const [isCollapsed, setIsCollapsed] = useState(true);
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     const { darkMode } = useTheme();
 
     const handleNavigation = (path: string) => {
         router.push(path);
     };
 
+    // ตรวจสอบว่าเป็น mobile device หรือไม่
+    useEffect(() => {
+        const checkIfMobile = () => {
+            setIsMobile(window.innerWidth <= 768);
+            // ถ้าเป็นมือถือให้ collapse sidebar โดยอัตโนมัติ
+            if (window.innerWidth <= 768) {
+                setIsCollapsed(true);
+            }
+        };
+
+        // Check initially
+        checkIfMobile();
+
+        // Add listener
+        window.addEventListener('resize', checkIfMobile);
+
+        // Clean up
+        return () => window.removeEventListener('resize', checkIfMobile);
+    }, []);
+
+    // เมื่อ route เปลี่ยน ให้ปิด sidebar บนมือถือ
+    useEffect(() => {
+        if (isMobile) {
+            setIsCollapsed(true);
+        }
+    }, [pathname, isMobile]);
+
+    // Toggle sidebar
+    const toggleSidebar = () => {
+        setIsCollapsed(!isCollapsed);
+
+        // ถ้าเปิด sidebar บนมือถือ ให้ป้องกันการ scroll ของหน้า
+        if (isMobile && isCollapsed) {
+            document.body.classList.add('sidebar-open');
+        } else {
+            document.body.classList.remove('sidebar-open');
+        }
+    };
+
+    // แก้ไขฟังก์ชัน handleLogout
     const handleLogout = async () => {
+        // แสดง toast ยืนยันการออกจากระบบ
+        toast((t) => (
+            <div className="confirm-logout-toast">
+                <p className="confirm-logout-message">คุณต้องการออกจากระบบใช่หรือไม่?</p>
+                <div className="confirm-logout-buttons">
+                    <button
+                        className="confirm-btn"
+                        onClick={() => {
+                            toast.dismiss(t.id);
+                            performLogout();
+                        }}
+                    >
+                        ยืนยัน
+                    </button>
+                    <button
+                        className="cancel-btn"
+                        onClick={() => toast.dismiss(t.id)}
+                    >
+                        ยกเลิก
+                    </button>
+                </div>
+            </div>
+        ), {
+            duration: 10000, // 10 วินาที
+            position: 'top-center',
+            style: {
+                background: darkMode ? '#1f2937' : '#ffffff',
+                color: darkMode ? '#f3f4f6' : '#1f2937',
+                padding: '16px',
+                borderRadius: '12px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                width: '300px',
+                border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.05)',
+            }
+        });
+    };
+
+    // ฟังก์ชันทำการออกจากระบบจริง
+    const performLogout = async () => {
         try {
             await signOut({
                 redirect: false,
                 callbackUrl: "/login"
             });
 
-            // Toast แบบสวยงาม
+            // แสดง Toast สำเร็จ
             toast.success("ออกจากระบบสำเร็จ", {
                 icon: '👋',
                 duration: 3000,
@@ -57,7 +137,8 @@ export default function Sidebar({ className }: SidebarProps) {
             router.push("/login");
         } catch (error) {
             console.error("Logout error:", error);
-            // แจ้งเตือนข้อผิดพลาดแบบสวยงาม
+
+            // แจ้งเตือนข้อผิดพลาด
             toast.error("เกิดข้อผิดพลาดขณะออกจากระบบ", {
                 icon: '⚠️',
                 duration: 4000,
@@ -75,7 +156,6 @@ export default function Sidebar({ className }: SidebarProps) {
         }
     };
 
-
     useEffect(() => {
         // เพิ่มหรือลบคลาส sidebar-collapsed จาก main-content
         const mainContent = document.querySelector('.main-content');
@@ -90,12 +170,24 @@ export default function Sidebar({ className }: SidebarProps) {
 
     return (
         <>
+            {/* Mobile menu button */}
             <button
                 className={`mobile-menu-button ${darkMode ? 'dark' : ''}`}
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={toggleSidebar}
+                aria-label={isCollapsed ? "เปิดเมนู" : "ปิดเมนู"}
             >
-                <Menu size={24} />
+                {isCollapsed ? <Menu size={24} /> : <X size={24} />}
             </button>
+
+            {/* Sidebar overlay สำหรับมือถือ */}
+            {isMobile && !isCollapsed && (
+                <div
+                    className="sidebar-overlay active"
+                    onClick={() => setIsCollapsed(true)}
+                />
+            )}
+
+            {/* Sidebar */}
             <div className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${className} ${darkMode ? 'dark' : ''}`}>
                 <div className="sidebar-header">
                     <div
@@ -149,6 +241,17 @@ export default function Sidebar({ className }: SidebarProps) {
                         <span>ออกจากระบบ</span>
                     </div>
                 </nav>
+
+                {/* Add close button inside sidebar for mobile */}
+                {isMobile && !isCollapsed && (
+                    <button
+                        className="close-sidebar-btn"
+                        onClick={() => setIsCollapsed(true)}
+                        aria-label="ปิดเมนู"
+                    >
+                        <X size={20} />
+                    </button>
+                )}
             </div>
         </>
     );

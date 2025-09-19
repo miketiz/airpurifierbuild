@@ -361,4 +361,25 @@
     .custom-date-picker {
         flex-direction: column;
     }
+
+    /* ปรับปรุง responsive สำหรับ Charts */
+    .chart-controls {
+        flex-direction: column;
+        padding: 12px;
+    }
+    
+    .chart-wrapper {
+        height: 300px !important; /* ลดความสูงบนมือถือ */
+    }
+    
+    /* ปรับขนาด font ใน chart */
+    .chart-wrapper canvas {
+        max-height: 300px;
+    }
+}
+
+@media (max-width: 480px) {
+    .chart-wrapper {
+        height: 250px !important; /* ลดความสูงสำหรับมือถือขนาดเล็ก */
+    }
 }

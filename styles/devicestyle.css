@@ -1015,3 +1015,24 @@
   50% { opacity: 1; }
   100% { opacity: 0.6; }
 }
+
+/* เพิ่ม responsive styles สำหรับ device selector */
+@media (max-width: 768px) {
+    .device-selector-container {
+        flex-direction: column;
+    }
+    
+    .device-selector {
+        width: 100%;
+    }
+    
+    .device-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .control-btn {
+        min-width: 80px;
+        padding: 10px;
+    }
+}

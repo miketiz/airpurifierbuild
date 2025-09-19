@@ -20,3 +20,22 @@ p {
   line-height: 1.6;
   margin-bottom: 1rem;
 }
+
+/* เพิ่ม responsive font sizes */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.75rem !important;
+    }
+    
+    h2 {
+        font-size: 1.5rem !important;
+    }
+    
+    h3 {
+        font-size: 1.25rem !important;
+    }
+    
+    p, span, div {
+        font-size: 0.95rem !important;
+    }
+}

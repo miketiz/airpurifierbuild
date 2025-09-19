@@ -117,8 +117,8 @@ export default function DeviceSelector({
                 className="react-select-container"
                 classNamePrefix="react-select"
                 options={deviceList.map((device, idx) => ({
-                    value: String(device.device_id),
-                    label: device.device_name
+                    value: String(device.device_id), // ใช้งานได้เพราะเราเพิ่ม device_id แล้ว
+                    label: device.device_name  // ใช้งานได้เพราะเราเพิ่ม device_name แล้ว
                         ? `${device.device_name}`
                         : `เครื่อง ${idx + 1}`,
                     isActive: device.is_active
