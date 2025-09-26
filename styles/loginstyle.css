@@ -38,12 +38,6 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.login-container {
-    padding: 20px;
-    width: 100%;
-    max-width: 100%;
-}
-
 /* ส่วนโลโก้ */
 .section-logo {
     background: linear-gradient(45deg, #26eb72 0%, #1db45a 100%);
@@ -346,9 +340,9 @@
     }
 
     .login-container {
-        padding: 20px;
-        width: 100%;
-        max-width: 100%;
+        grid-template-columns: 1fr;
+        width: 95%;
+        max-width: 500px;
         height: auto;
         min-height: 500px;
         margin: 20px;

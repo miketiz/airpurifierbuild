@@ -157,7 +157,7 @@ export default function Devices() {
 
     // เพิ่ม state สำหรับการอัพเดตล่าสุด
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-    
+
     // เพิ่ม state เพื่อระบุว่าเป็นเครื่องใหม่หรือไม่
     const [isNewDeviceAdded, setIsNewDeviceAdded] = useState<boolean>(false);
 
@@ -227,7 +227,7 @@ export default function Devices() {
             if (devices.length > 0 && !selectedDevice) {
                 const firstDevice = devices[0];
                 setSelectedDevice(firstDevice);
-                
+
                 // ตั้งสถานะเริ่มต้น แต่ไม่ดึงจาก backend ทันที
                 setPower(false);
                 setMode('off');
@@ -243,7 +243,7 @@ export default function Devices() {
             setMode('off');
             return;
         }
-        
+
         if (deviceStatusData?.success && deviceStatusData.data && selectedDevice) {
             const deviceStatus = deviceStatusData.data;
 
@@ -519,7 +519,7 @@ export default function Devices() {
         if (result.success && result.pin_key) {
             setGeneratedPin(result.pin_key);
             if (showModal) setShowPinModal(true);
-            
+
             // รีเฟรชรายการเครื่องหลังจากสร้าง PIN สำเร็จ
             // เพื่อให้ดึงข้อมูลเครื่องใหม่ที่เพิ่งเพิ่มเข้ามา
             setTimeout(async () => {
@@ -534,19 +534,19 @@ export default function Devices() {
 
                         setDeviceList(devices);
                         setHasDevice(devices.length > 0);
-                        
+
                         // ถ้ามีเครื่องใหม่ ให้เลือกเครื่องล่าสุดและตั้งสถานะเป็นปิด
                         if (devices.length > 0) {
                             const latestDevice = devices[devices.length - 1]; // เลือกเครื่องล่าสุด
                             setSelectedDevice(latestDevice);
-                            
+
                             // ตั้ง flag ว่าเป็นเครื่องใหม่
                             setIsNewDeviceAdded(true);
-                            
+
                             // ตั้งสถานะเริ่มต้นเป็นปิดเครื่องสำหรับเครื่องใหม่
                             setPower(false);
                             setMode('off');
-                            
+
                             // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
                             setPm25(0);
                             setAqi(0);
@@ -554,19 +554,19 @@ export default function Devices() {
                             setHumidity(0);
                             setAirQualityStatus("ไม่มีข้อมูล");
                             setLastUpdated(null);
-                            
+
                             // รีเซ็ตการตั้งเวลา
                             setScheduleEnabled(false);
                             setStartTime('08:00');
                             setEndTime('18:00');
                             setScheduleDays([false, true, true, true, true, true, false]);
                             setScheduleMode('medium');
-                            
+
                             // รีเซ็ต flag หลังจาก 3 วินาที
                             setTimeout(() => {
                                 setIsNewDeviceAdded(false);
                             }, 3000);
-                            
+
                             console.log('เครื่องใหม่ตั้งสถานะเป็น "ปิด" เรียบร้อย');
                         }
                     }
@@ -632,16 +632,16 @@ export default function Devices() {
                     if (devices.length > 0) {
                         setHasDevice(true);
                         setDeviceList(devices);
-                        
+
                         // ถ้ายังไม่มีเครื่องที่เลือกอยู่ ให้เลือกเครื่องแรก
                         if (!selectedDevice) {
                             const firstDevice = devices[0];
                             setSelectedDevice(firstDevice);
-                            
+
                             // ตั้งสถานะเริ่มต้นเป็นปิดเครื่องสำหรับเครื่องใหม่
                             setPower(false);
                             setMode('off');
-                            
+
                             // ดึงสถานะของเครื่องจาก backend (แต่ไม่ใช่เครื่องใหม่)
                             if (firstDevice.connection_key) {
                                 try {
@@ -724,15 +724,15 @@ export default function Devices() {
 
                 setDeviceList(devices);
                 setHasDevice(devices.length > 0);
-                
+
                 if (devices.length > 0) {
                     const firstDevice = devices[0];
                     setSelectedDevice(firstDevice);
-                    
+
                     // รีเซ็ตสถานะเป็นปิดเครื่องก่อน
                     setPower(false);
                     setMode('off');
-                    
+
                     // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
                     setPm25(0);
                     setAqi(0);
@@ -740,7 +740,7 @@ export default function Devices() {
                     setHumidity(0);
                     setAirQualityStatus("ไม่มีข้อมูล");
                     setLastUpdated(null);
-                    
+
                     // ดึงสถานะจริงจาก backend (ไม่ใช่เครื่องใหม่)
                     if (firstDevice.connection_key) {
                         setTimeout(() => {
@@ -1000,11 +1000,11 @@ export default function Devices() {
                                         setDeviceList(devices);
                                         const newDevice = devices[devices.length - 1]; // เลือกเครื่องใหม่ล่าสุด
                                         setSelectedDevice(newDevice);
-                                        
+
                                         // ตั้งสถานะเริ่มต้นเป็นปิดเครื่องสำหรับเครื่องใหม่
                                         setPower(false);
                                         setMode('off');
-                                        
+
                                         // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
                                         setPm25(0);
                                         setAqi(0);
@@ -1012,14 +1012,14 @@ export default function Devices() {
                                         setHumidity(0);
                                         setAirQualityStatus("ไม่มีข้อมูล");
                                         setLastUpdated(null);
-                                        
+
                                         // รีเซ็ตการตั้งเวลา
                                         setScheduleEnabled(false);
                                         setStartTime('08:00');
                                         setEndTime('18:00');
                                         setScheduleDays([false, true, true, true, true, true, false]);
                                         setScheduleMode('medium');
-                                        
+
                                         // ไม่ต้องดึงสถานะจาก backend สำหรับเครื่องใหม่
                                         console.log('เครื่องใหม่จาก EmptyDeviceState ตั้งสถานะเป็น "ปิด" เรียบร้อย');
                                     }
@@ -1048,15 +1048,15 @@ export default function Devices() {
                                             if (found && found.is_active === false) {
                                                 setShowOfflineModal(true);
                                             }
-                                            
+
                                             // เมื่อเปลี่ยนเครื่อง ให้รีเซ็ตสถานะเป็นสถานะเริ่มต้น
                                             if (found && found !== selectedDevice) {
                                                 setSelectedDevice(found);
-                                                
+
                                                 // รีเซ็ตสถานะเป็นปิดเครื่องก่อน
                                                 setPower(false);
                                                 setMode('off');
-                                                
+
                                                 // รีเซ็ตข้อมูลฝุ่นและสิ่งแวดล้อม
                                                 setPm25(0);
                                                 setAqi(0);
@@ -1064,7 +1064,7 @@ export default function Devices() {
                                                 setHumidity(0);
                                                 setAirQualityStatus("ไม่มีข้อมูล");
                                                 setLastUpdated(null);
-                                                
+
                                                 // ถ้าเครื่องไม่ทำงาน ให้คงสถานะปิดไว้ ไม่ต้องดึงจาก backend
                                                 if (found.is_active && found.connection_key) {
                                                     setTimeout(() => {
@@ -1178,7 +1178,7 @@ export default function Devices() {
                                 <div className="air-quality-card">
                                     <h3>PM 2.5</h3>
                                     <div className="value">
-                                        {!selectedDevice || !selectedDevice.is_active ? "0" : 
+                                        {!selectedDevice || !selectedDevice.is_active ? "0" :
                                             isDustLoading ? "0" : pm25}
                                     </div>
                                     <div className="unit">µg/m³</div>
@@ -1186,7 +1186,7 @@ export default function Devices() {
                                 <div className="air-quality-card">
                                     <h3>AQI</h3>
                                     <div className="value">
-                                        {!selectedDevice || !selectedDevice.is_active ? "0" : 
+                                        {!selectedDevice || !selectedDevice.is_active ? "0" :
                                             isDustLoading ? "0" : aqi}
                                     </div>
                                     <div className="status">คุณภาพอากาศ {
@@ -1200,7 +1200,7 @@ export default function Devices() {
                                         <div className="temp-section">
                                             <Thermometer size={30} />
                                             <div className="value">
-                                                {!selectedDevice || !selectedDevice.is_active ? "0" : 
+                                                {!selectedDevice || !selectedDevice.is_active ? "0" :
                                                     isDustLoading ? "..." : temperature}
                                             </div>
                                             <div className="unit">°C</div>
@@ -1208,7 +1208,7 @@ export default function Devices() {
                                         <div className="humid-section">
                                             <Droplets size={30} />
                                             <div className="value">
-                                                {!selectedDevice || !selectedDevice.is_active ? "0" : 
+                                                {!selectedDevice || !selectedDevice.is_active ? "0" :
                                                     isDustLoading ? "..." : humidity}
                                             </div>
                                             <div className="unit">%</div>
@@ -1221,7 +1221,7 @@ export default function Devices() {
                                 <div>
                                     <span>อัพเดตล่าสุด: </span>
                                     <span className="time-value">
-                                        {!selectedDevice || !selectedDevice.is_active ? '-' : 
+                                        {!selectedDevice || !selectedDevice.is_active ? '-' :
                                             lastUpdated ? lastUpdated.toLocaleTimeString('th-TH') : '-'}
                                     </span>
                                     {isRefetchingDust && selectedDevice?.is_active && <span className="refreshing"> (กำลังอัพเดต...)</span>}
@@ -1288,9 +1288,9 @@ export default function Devices() {
                                     {/* แสดงข้อความเตือนเมื่อเครื่องไม่ทำงาน */}
                                     {!selectedDevice?.is_active && (
                                         <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
-                                            <p className="warning-message" style={{ 
-                                                color: '#ff4d4f', 
-                                                fontSize: '14px', 
+                                            <p className="warning-message" style={{
+                                                color: '#ff4d4f',
+                                                fontSize: '14px',
                                                 textAlign: 'center',
                                                 padding: '8px 16px',
                                                 backgroundColor: '#fff2f0',
@@ -1317,7 +1317,7 @@ export default function Devices() {
                                     )}
                                     <span>{power ? 'ปิด' : 'เปิด'}</span>
                                 </button>
-                                
+
                                 <button
                                     className={`control-btn ${mode === 'low' ? 'active' : ''} ${!selectedDevice?.is_active ? 'disabled' : ''}`}
                                     onClick={() => handleModeChange('low')}
@@ -1361,10 +1361,10 @@ export default function Devices() {
                                     <Clock className="schedule-icon" size={32} />
                                     <h2>ตั้งเวลาการทำงาน</h2>
                                     <div className="toggle-switch">
-                                        <input 
-                                            type="checkbox" 
-                                            id="schedule-toggle" 
-                                            checked={scheduleEnabled} 
+                                        <input
+                                            type="checkbox"
+                                            id="schedule-toggle"
+                                            checked={scheduleEnabled}
                                             onChange={handleScheduleToggle}
                                             disabled={!selectedDevice?.is_active}
                                         />
