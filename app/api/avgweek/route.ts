@@ -16,14 +16,17 @@ async function fetchWeeklyAverageFromInfluxDB(
     endDate?: string | null
 ): Promise<WeeklyAverageDataItem[]> {
     try {
-        // สร้าง URL พร้อมพารามิเตอร์ที่จำเป็น
-        let apiUrl = `https://fastapi.mm-air.online/avg/week?mac_id=${macId}`;
+        // สร้าง URL พร้อมพารามิเตอร์ที่จำเป็น (ไม่ส่งข้อมูลเวลา)
+        let apiUrl = `https://fastapi.mm-air.online/avg/day?mac_id=${macId}`;
         
-        // ส่งพารามิเตอร์ตามที่เลือก
+        // ส่งเฉพาะพารามิเตอร์ที่จำเป็น ไม่ส่งข้อมูล timezone
         if (startDate && endDate) {
-            // กรณีเลือก custom range
-            apiUrl += `&start_date=${startDate}&end_date=${endDate}`;
-            console.log(`API call with custom range: ${startDate} to ${endDate}`);
+            // กรณีเลือก custom range - ส่งเฉพาะวันที่
+            const cleanStartDate = startDate.split('T')[0]; // เอาเฉพาะ YYYY-MM-DD
+            const cleanEndDate = endDate.split('T')[0];     // เอาเฉพาะ YYYY-MM-DD
+            
+            apiUrl += `&start_date=${cleanStartDate}&end_date=${cleanEndDate}`;
+            console.log(`API call with custom date range: ${cleanStartDate} to ${cleanEndDate}`);
         } else {
             // กรณีเลือกจากประเภท 7วัน, 14วัน, 30วัน
             apiUrl += `&days=${days}`;
@@ -32,7 +35,7 @@ async function fetchWeeklyAverageFromInfluxDB(
 
         console.log(`Calling external API: ${apiUrl}`);
         
-        // เพิ่ม timeout และ retry
+        // เรียก API โดยไม่ส่งข้อมูลเวลา
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         
@@ -54,9 +57,16 @@ async function fetchWeeklyAverageFromInfluxDB(
         }
 
         const result = await response.json();
-        console.log('API response:', JSON.stringify(result).substring(0, 200) + '...');
+        console.log('API response received:', {
+            status: result.status,
+            dataLength: Array.isArray(result.data) ? result.data.length : 0,
+            firstItem: result.data?.[0] ? {
+                time: result.data[0].time,
+                PM2: result.data[0].PM2
+            } : null
+        });
         
-        // Adapt to the actual response format from the external API
+        // รับข้อมูลจาก API โดยไม่ปรับเวลา - ให้ FastAPI จัดการเอง
         if (result.status === 1 && Array.isArray(result.data)) {
             return result.data;
         } else if (Array.isArray(result)) {
@@ -79,7 +89,9 @@ export async function GET(request: NextRequest) {
         const days = parseInt(searchParams.get('days') || '7');
         const startDate = searchParams.get('start_date');
         const endDate = searchParams.get('end_date');
-        const tzOffset = parseInt(searchParams.get('tz_offset') || '0');
+        
+        // ลบการใช้ tzOffset เนื่องจากไม่ต้องส่งไปที่ FastAPI
+        // const tzOffset = parseInt(searchParams.get('tz_offset') || '0');
         
         if (!macId) {
             return NextResponse.json({
@@ -89,33 +101,27 @@ export async function GET(request: NextRequest) {
             }, { status: 400 });
         }
 
-        console.log(`API request received: mac_id=${macId}, days=${days}, start_date=${startDate}, end_date=${endDate}, timezone_offset=${tzOffset}`);
+        console.log(`API request received: mac_id=${macId}, days=${days}, start_date=${startDate}, end_date=${endDate}`);
         
-        // เรียกข้อมูลจาก API
+        // เรียกข้อมูลจาก FastAPI โดยไม่ส่งข้อมูลเวลา
         const data = await fetchWeeklyAverageFromInfluxDB(macId, days, startDate, endDate);
         
-        // แปลงเวลาตาม timezone ของผู้ใช้
-        const adjustedData = data.map(item => {
-            // แปลงวันที่ตาม timezone ของผู้ใช้
-            const originalDate = new Date(item.time);
-            
-            // สร้างวันที่ที่ปรับตาม timezone แล้ว (เนื่องจาก API ส่งเวลา UTC มา)
-            const localDate = new Date(originalDate.getTime() - (tzOffset * 60 * 1000));
-            
-            // log เพื่อ debug
-            console.log(`Converting date: ${item.time} => ${localDate.toISOString()}`);
-            
-            return {
-                ...item,
-                time: localDate.toISOString(),
-                original_time: item.time // เก็บเวลาดั้งเดิมไว้ด้วยเผื่อต้องใช้
-            };
-        });
-
+        // ส่งข้อมูลกลับไปโดยไม่ปรับเวลา - ใช้ข้อมูลจาก FastAPI ตรงๆ
         return NextResponse.json({
             status: 1,
             message: "success",
-            data: adjustedData
+            data: data, // ใช้ข้อมูลจาก FastAPI โดยตรงไม่ปรับแต่ง
+            total_records: data.length,
+            mac_id: macId,
+            ...(startDate && endDate && {
+                date_range: {
+                    start: startDate.split('T')[0],
+                    end: endDate.split('T')[0]
+                }
+            }),
+            ...(!startDate && !endDate && {
+                days_requested: days
+            })
         });
     } catch (error) {
         console.error('Error in weekly average API:', error);

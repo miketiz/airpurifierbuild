@@ -19,14 +19,23 @@ import { useCurrentDustData, useHistoricalDustData } from "./hooks/useDustData";
 import { Device, HistoricalDustData } from "./types/dashboard";
 import { convertDevicesData } from "./utils/dashboardUtils";
 
-;
+// เพิ่ม interface สำหรับ GroupedDustData (เหมือนใน Reports)
+interface GroupedDustData {
+    date: Date;
+    displayDate: string;
+    PM2: number;
+    temperature: number;
+    humidity: number;
+    count: number;
+}
+
 export default function Dashboard() {
     // State เดิมที่จำเป็นต้องคงไว้
     const [temperature, setTemperature] = useState<number>(25);
-    // state สำหรับ modal อุปกรณ์ออฟไลน์
     const [showOfflineModal, setShowOfflineModal] = useState(false);
     const [humidity, setHumidity] = useState<number>(60);
     const [pm25, setPm25] = useState<number>(25);
+    
     // State สำหรับข้อมูลกราฟ
     const [chartHours, setChartHours] = useState<string[]>([]);
     const [chartData, setChartData] = useState<number[]>([]);
@@ -34,11 +43,16 @@ export default function Dashboard() {
     const [chartHumidityData, setChartHumidityData] = useState<number[]>([]);
     const [chartType, setChartType] = useState<'line' | 'bar'>('line');
     const [showMultipleData, setShowMultipleData] = useState<boolean>(false);
+    
     const { darkMode } = useTheme();
-    // State ที่อาจไม่จำเป็นแล้วเมื่อใช้ React Query แต่คงไว้ก่อนเพื่อไม่ให้โค้ดพัง
+    
+    // State สำหรับ devices
     const [hasDevice, setHasDevice] = useState(false);
     const [deviceList, setDeviceList] = useState<Device[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+
+    // Constants สำหรับ Dashboard - แสดง 7 วัน
+    const DASHBOARD_DAYS = 7;
 
     // session และ queryClient
     const { data: session } = useSession();
@@ -57,10 +71,16 @@ export default function Dashboard() {
         isRefetching: isRefetchingDust
     } = useCurrentDustData(selectedDevice?.connection_key);
 
+    // แก้ไข: ระบุพารามิเตอร์ให้ชัดเจน
     const {
         data: historicalData,
         isLoading: isHistoryLoading
-    } = useHistoricalDustData(selectedDevice?.mac_id); // ใช้ข้อมูลเฉลี่ยรายสัปดาห์
+    } = useHistoricalDustData(
+        selectedDevice?.mac_id,
+        DASHBOARD_DAYS,  // 7 วัน
+        null,            // ไม่ใช้ startDate
+        null             // ไม่ใช้ endDate
+    );
 
     // อัพเดต state เมื่อข้อมูล devices เปลี่ยน
     useEffect(() => {
@@ -114,9 +134,9 @@ export default function Dashboard() {
         }
     }, [currentDustData, selectedDevice]);
 
-    // อัพเดต state เมื่อข้อมูลฝุ่นย้อนหลังเปลี่ยน
+    // แก้ไข: ใช้การประมวลผลแบบเดียวกับ Reports (Group by Day)
     useEffect(() => {
-        console.log('=== DEBUG historicalData ===');
+        console.log('=== DEBUG historicalData (Dashboard - 7 days) ===');
         console.log('selectedDevice?.mac_id:', selectedDevice?.mac_id);
         console.log('selectedDevice?.is_active:', selectedDevice?.is_active);
         console.log('historicalData:', historicalData);
@@ -133,33 +153,87 @@ export default function Dashboard() {
         }
 
         if (historicalData?.status === 1 && historicalData.data && Array.isArray(historicalData.data) && historicalData.data.length > 0) {
-            console.log('จำนวนข้อมูลเฉลี่ยรายวัน:', historicalData.data.length, 'รายการ');
+            console.log('จำนวนข้อมูลดิบ:', historicalData.data.length, 'รายการ');
 
-            // แปลงข้อมูลสำหรับกราฟ
-            const times = historicalData.data.map((item: HistoricalDustData) => {
+            // เรียงลำดับข้อมูลตามเวลา (เหมือน Reports)
+            const sortedData = [...historicalData.data].sort((a: HistoricalDustData, b: HistoricalDustData) => 
+                new Date(a.time).getTime() - new Date(b.time).getTime()
+            );
+            
+            // จัดกลุ่มข้อมูลตามวันเพื่อป้องกันการแสดงวันที่ซ้ำกัน (เหมือน Reports)
+            const groupedByDay = new Map<string, GroupedDustData>();
+            
+            sortedData.forEach((item: HistoricalDustData) => {
+                // ตัดเวลาออกเพื่อใช้เฉพาะวันที่เป็นตัวจัดกลุ่ม
                 const date = new Date(item.time);
-                return date.toLocaleDateString('th-TH', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    weekday: 'short'
+                const dateKey = date.toLocaleDateString('th-TH', { 
+                    year: 'numeric', 
+                    month: 'numeric', 
+                    day: 'numeric' 
                 });
+                
+                // เพิ่ม nullish coalescing operator เพื่อให้ค่าเป็น 0 หากไม่มีข้อมูล
+                const pm2Value = item?.PM2 ?? 0;
+                const tempValue = item?.temperature ?? 0;
+                const humidityValue = item?.humidity ?? 0;
+                
+                if (!groupedByDay.has(dateKey)) {
+                    groupedByDay.set(dateKey, {
+                        date: date,
+                        displayDate: date.toLocaleDateString('th-TH', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            weekday: 'short'
+                        }),
+                        PM2: pm2Value,
+                        temperature: tempValue,
+                        humidity: humidityValue,
+                        count: 1
+                    });
+                } else {
+                    const current = groupedByDay.get(dateKey)!;
+                    current.PM2 += pm2Value;
+                    current.temperature += tempValue;
+                    current.humidity += humidityValue;
+                    current.count += 1;
+                }
             });
-            const pm25Values = historicalData.data.map((item: HistoricalDustData) => item.PM2 || 0);
-            const tempValues = historicalData.data.map((item: HistoricalDustData) => item.temperature || 0);
-            const humidityValues = historicalData.data.map((item: HistoricalDustData) => item.humidity || 0);
+            
+            // คำนวณค่าเฉลี่ยและสร้างอาร์เรย์ข้อมูลใหม่ (เหมือน Reports)
+            const groupedData: GroupedDustData[] = Array.from(groupedByDay.values());
+            
+            // จัดเรียงตามวันที่อีกครั้ง
+            groupedData.sort((a, b) => a.date.getTime() - b.date.getTime());
+            
+            // จำกัดข้อมูลให้แสดงเพียง 7 วันล่าสุด
+            const limitedData = DASHBOARD_DAYS > 0 && DASHBOARD_DAYS < groupedData.length
+                ? groupedData.slice(-DASHBOARD_DAYS)
+                : groupedData;
+            
+            // Log ข้อมูล
+            console.log(`Dashboard: Showing ${limitedData.length} days of data (after grouping) out of ${groupedData.length} available days`);
+            
+            // แปลงข้อมูลสำหรับกราฟจากข้อมูลที่จัดกลุ่มแล้ว (เหมือน Reports)
+            const times = limitedData.map(item => item.displayDate);
+            const pm25Values = limitedData.map(item => item.PM2 / item.count); // คำนวณค่าเฉลี่ย
+            const tempValues = limitedData.map(item => item.temperature / item.count);
+            const humidityValues = limitedData.map(item => item.humidity / item.count);
 
-            console.log('วันที่:', times);
-            console.log('ค่า PM2.5 เฉลี่ย:', pm25Values);
+            console.log('Dashboard - วันที่ (จัดกลุ่มแล้ว):', times);
+            console.log('Dashboard - ค่า PM2.5 เฉลี่ย:', pm25Values);
+            console.log('Dashboard - ค่าอุณหภูมิ เฉลี่ย:', tempValues);
+            console.log('Dashboard - ค่าความชื้น เฉลี่ย:', humidityValues);
 
             setChartHours(times);
             setChartData(pm25Values);
             setChartTempData(tempValues);
             setChartHumidityData(humidityValues);
+
         } else {
             if (historicalData?.status === 0) {
                 console.log('API ส่งกลับ status 0:', historicalData.message);
             } else {
-                console.log('ไม่พบข้อมูลเฉลี่ยรายวัน หรือ API ไม่สำเร็จ');
+                console.log('ไม่พบข้อมูลเฉลี่ยรายวัน (7 วัน) หรือ API ไม่สำเร็จ');
             }
             // กรณีไม่มีข้อมูล แสดงเป็นอาเรย์ว่าง
             setChartHours([]);
@@ -167,7 +241,7 @@ export default function Dashboard() {
             setChartTempData([]);
             setChartHumidityData([]);
         }
-    }, [historicalData, selectedDevice, isHistoryLoading]);
+    }, [historicalData, selectedDevice, isHistoryLoading, DASHBOARD_DAYS]);
 
     // ฟังก์ชันรีเฟรชข้อมูล
     const refreshDeviceList = () => {
@@ -201,65 +275,64 @@ export default function Dashboard() {
         }
     }, [currentDustData]);
 
-    // ในไฟล์ page.tsx
-const [filterStatus, setFilterStatus] = useState<"normal" | "abnormal" | "unknown">("unknown");
-const [filterSuggestion, setFilterSuggestion] = useState<string>("");
+    // Filter status logic
+    const [filterStatus, setFilterStatus] = useState<"normal" | "abnormal" | "unknown">("unknown");
+    const [filterSuggestion, setFilterSuggestion] = useState<string>("");
 
-// เมื่อเรียก API สำหรับสถานะกรอง ให้แปลงค่าเป็นรูปแบบใหม่
-useEffect(() => {
-    const fetchFilterStatus = async () => {
-        if (!selectedDevice?.connection_key) return;
-        
-        try {
-            // ส่ง connection_key ไปให้ API
-            const response = await fetch(`/api/devices/filterstatus?connection_key=${selectedDevice.connection_key}`);
-            const data = await response.json();
+    // เมื่อเรียก API สำหรับสถานะกรอง
+    useEffect(() => {
+        const fetchFilterStatus = async () => {
+            if (!selectedDevice?.connection_key) return;
             
-            console.log("Filter status response:", data);
-            
-            if (data.success && data.data) {
-                // แก้ไขการตรวจสอบสถานะ เพื่อให้ตรงกับการส่งกลับจาก API
-                if (data.data.status === "normal") {
-                    setFilterStatus("normal");
-                } else if (data.data.status === "abnormal") {
-                    setFilterStatus("abnormal");
+            try {
+                const response = await fetch(`/api/devices/filterstatus?connection_key=${selectedDevice.connection_key}`);
+                const data = await response.json();
+                
+                console.log("Filter status response:", data);
+                
+                if (data.success && data.data) {
+                    if (data.data.status === "normal") {
+                        setFilterStatus("normal");
+                    } else if (data.data.status === "abnormal") {
+                        setFilterStatus("abnormal");
+                    } else {
+                        setFilterStatus("unknown");
+                    }
+                    
+                    if (data.data.suggestion) {
+                        setFilterSuggestion(data.data.suggestion);
+                    } else {
+                        setFilterSuggestion(data.data.status === "normal" ? "✅ กรองยังใช้งานได้ปกติ" : "⚠️ ควรเปลี่ยนไส้กรองใหม่");
+                    }
                 } else {
                     setFilterStatus("unknown");
+                    setFilterSuggestion("");
                 }
-                
-                // เก็บค่า suggestion จาก API
-                if (data.data.suggestion) {
-                    setFilterSuggestion(data.data.suggestion);
-                } else {
-                    setFilterSuggestion(data.data.status === "normal" ? "✅ กรองยังใช้งานได้ปกติ" : "⚠️ ควรเปลี่ยนไส้กรองใหม่");
-                }
-            } else {
+            } catch (error) {
+                console.error("Error fetching filter status:", error);
                 setFilterStatus("unknown");
                 setFilterSuggestion("");
             }
-        } catch (error) {
-            console.error("Error fetching filter status:", error);
+        };
+        
+        if (selectedDevice?.is_active) {
+            fetchFilterStatus();
+        } else {
             setFilterStatus("unknown");
             setFilterSuggestion("");
         }
-    };
-    
-    if (selectedDevice?.is_active) {
-        fetchFilterStatus();
-    } else {
-        setFilterStatus("unknown");
-        setFilterSuggestion("");
-    }
-}, [selectedDevice?.connection_key, selectedDevice?.is_active]);
+    }, [selectedDevice?.connection_key, selectedDevice?.is_active]);
 
     useEffect(() => {
         console.log('=== RENDER DASHBOARD ===', {
             isDeviceLoading,
             hasDevice,
-            selectedDeviceId: selectedDevice?.device_id,  // ใช้ device_id แทน object ทั้งหมด
-            deviceList: deviceList.length
+            selectedDeviceId: selectedDevice?.device_id,
+            deviceList: deviceList.length,
+            chartDataPoints: chartData.length,
+            daysToShow: DASHBOARD_DAYS
         });
-    }, [isDeviceLoading, hasDevice, selectedDevice?.device_id, deviceList.length]);  // แก้ dependency
+    }, [isDeviceLoading, hasDevice, selectedDevice?.device_id, deviceList.length, chartData.length, DASHBOARD_DAYS]);
 
     return (
         <div className={`dashboard-container ${darkMode ? 'dark' : ''}`}>
@@ -292,7 +365,7 @@ useEffect(() => {
                             temperature={temperature}
                             humidity={humidity}
                             filterStatus={filterStatus}
-                            filterSuggestion={filterSuggestion}  // เพิ่มบรรทัดนี้
+                            filterSuggestion={filterSuggestion}
                         />
 
                         <ChartSection
@@ -307,6 +380,9 @@ useEffect(() => {
                             darkMode={darkMode}
                             onChartTypeChange={setChartType}
                             onDataTypeChange={setShowMultipleData}
+                            // ส่งพารามิเตอร์เพิ่มเติมให้ ChartSection
+                            daysToShow={DASHBOARD_DAYS}
+                            dateRange={`ข้อมูลย้อนหลัง ${DASHBOARD_DAYS} วัน`}
                         />
 
                         <UpdateStatus

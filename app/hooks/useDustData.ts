@@ -16,35 +16,17 @@ const fetchHistoricalDustData = async (
     
     let url = `/api/avgweek?mac_id=${macId}`;
     
-    // ส่ง timezone offset ไปแบบถูกต้อง (เป็นนาที และเป็นค่าบวกหรือลบ)
-    const timezoneOffset = -new Date().getTimezoneOffset(); // เปลี่ยนเป็นค่าบวกสำหรับโซนเวลาตะวันออก
-    url += `&tz_offset=${timezoneOffset}`;
-    
     // ถ้ามีการระบุวันเริ่มต้นและวันสิ้นสุด (กรณีเลือกช่วงเวลาเอง)
     if (startDate && endDate) {
-        // เพิ่มเวลาให้กับวันที่เลือก เพื่อให้ครอบคลุมทั้งวัน
-        const startWithTime = new Date(startDate);
-        startWithTime.setHours(0, 0, 0, 0); // เริ่มต้นวันที่ 00:00:00
-        
-        const endWithTime = new Date(endDate);
-        endWithTime.setHours(23, 59, 59, 999); // สิ้นสุดวันที่ 23:59:59
-        
-        // ต้องแน่ใจว่าใช้ UTC เพื่อหลีกเลี่ยงปัญหา timezone
-        const startIsoDate = startWithTime.toISOString();
-        const endIsoDate = endWithTime.toISOString();
-        
-        url += `&start_date=${startIsoDate}&end_date=${endIsoDate}&is_custom=true`;
-        console.log(`API call with custom date range: ${startIsoDate} to ${endIsoDate}`);
-        
-        // เพิ่ม debug log
-        console.log(`Local dates: ${startWithTime.toLocaleString()} to ${endWithTime.toLocaleString()}`);
+        // ส่งเฉพาะวันที่ ไม่ส่งเวลา
+        const start = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const end = endDate.toISOString().split('T')[0];     // YYYY-MM-DD
+        url += `&start_date=${start}&end_date=${end}`;
     } else {
-        // ถ้าไม่มีการระบุช่วงวัน แต่มีการระบุจำนวนวัน
-        url += `&days=${days}&is_custom=false`;
-        console.log(`API call with days parameter: ${days}`);
+        url += `&days=${days}`;
     }
     
-    console.log(`Fetching data from: ${url}`);
+    console.log('Fetching historical data from:', url);
     
     try {
         const response = await fetch(url, {

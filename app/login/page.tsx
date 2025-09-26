@@ -23,6 +23,8 @@ export default function Login() {
     const [passwordlogin, setPasswordlogin] = useState("");
     const [message, setMessage] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Smooth transition function
     const handleViewTransition = (newView: string) => {
@@ -60,18 +62,44 @@ export default function Login() {
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
+        // ตรวจสอบรหัสผ่านว่าตรงกันหรือไม่
         if (password !== confirmPassword) {
             toast.error("รหัสผ่านไม่ตรงกัน!");
             return;
         }
 
+        // ตรวจสอบความยาวรหัสผ่าน (อย่างน้อย 8 ตัว)
+        if (password.length < 8) {
+            toast.error("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+            return;
+        }
+
+        // ตรวจสอบชื่อผู้ใช้
+        if (username.trim().length < 3) {
+            toast.error("ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร");
+            return;
+        }
+
+        // ตรวจสอบรูปแบบอีเมล
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            toast.error("รูปแบบอีเมลไม่ถูกต้อง");
+            return;
+        }
+
         const payload = {
-            username: username,
-            email: email,
+            username: username.trim(),
+            email: email.trim().toLowerCase(),
             password: password,
         };
 
-        console.log("Registering with payload:", payload);
+        console.log("Registering with payload:", { 
+            username: payload.username, 
+            email: payload.email 
+        });
+
+        // แสดง loading toast
+        const loadingToast = toast.loading("กำลังลงทะเบียน...");
 
         try {
             const response = await fetch("/api/register", {
@@ -83,36 +111,47 @@ export default function Login() {
             });
 
             const data = await response.json();
+            toast.dismiss(loadingToast); // ลบ loading toast
 
-            if (response.ok) {
+            if (response.ok && data.success) {
+                // ส่งอีเมลต้อนรับ (ไม่บังคับ)
                 try {
                     const emailResponse = await fetch("/api/sent-email", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ email }),
+                        body: JSON.stringify({ email: payload.email }),
                     });
 
                     if (!emailResponse.ok) {
-                        console.error("ไม่สามารถส่งอีเมลต้อนรับได้");
+                        console.warn("ไม่สามารถส่งอีเมลต้อนรับได้");
                     }
                 } catch (emailError) {
-                    console.error("เกิดข้อผิดพลาดในการส่งอีเมล:", emailError);
+                    console.warn("เกิดข้อผิดพลาดในการส่งอีเมล:", emailError);
                 }
 
-                toast.success("ลงทะเบียนสำเร็จ!");
+                toast.success("ลงทะเบียนสำเร็จ! คุณสามารถเข้าสู่ระบบได้แล้ว");
                 console.log("Server response:", data);
 
+                // เคลียร์ฟอร์ม
                 setUsername("");
                 setEmail("");
                 setPassword("");
                 setConfirmPassword("");
+                
+                // กลับไปหน้า login
                 handleViewTransition("login");
             } else {
-                toast.error(data.message || "Registration failed");
+                toast.error(data.message || "การลงทะเบียนไม่สำเร็จ");
             }
         } catch (error) {
+            toast.dismiss(loadingToast); // ลบ loading toast
             console.error("Error during registration:", error);
-            toast.error("An error occurred during registration. Please try again.");
+            
+            if (error instanceof TypeError && error.message.includes('fetch')) {
+                toast.error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+            } else {
+                toast.error("เกิดข้อผิดพลาดในการลงทะเบียน กรุณาลองใหม่อีกครั้ง");
+            }
         }
     };
 
@@ -296,16 +335,17 @@ export default function Login() {
                     <input
                         id="new-username"
                         type="text"
-                        placeholder="Enter your username"
+                        placeholder="Enter your username (min 3 characters)"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
+                        minLength={3}
                     />
                 </div>
                 <div className="input-field">
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="register-email">Email</label>
                     <input
-                        id="email"
+                        id="register-email"
                         type="email"
                         placeholder="Enter your email"
                         value={email}
@@ -315,25 +355,45 @@ export default function Login() {
                 </div>
                 <div className="input-field">
                     <label htmlFor="new-password">Password</label>
-                    <input
-                        id="new-password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
+                    <div className="password-input">
+                        <input
+                            id="new-password"
+                            type={showRegisterPassword ? "text" : "password"}
+                            placeholder="Enter your password (min 8 characters)"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            minLength={8}
+                        />
+                        <button
+                            type="button"
+                            className="password-toggle"
+                            onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        >
+                            {showRegisterPassword ? <Eye size={20} /> : <EyeClosed size={20} />}
+                        </button>
+                    </div>
                 </div>
                 <div className="input-field">
                     <label htmlFor="confirm-password">Confirm Password</label>
-                    <input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="Confirm your password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                    />
+                    <div className="password-input">
+                        <input
+                            id="confirm-password"
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Confirm your password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            minLength={8}
+                        />
+                        <button
+                            type="button"
+                            className="password-toggle"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                            {showConfirmPassword ? <Eye size={20} /> : <EyeClosed size={20} />}
+                        </button>
+                    </div>
                 </div>
                 <div className="button-all">
                     <button type="submit" className="register-button-regis">

@@ -267,29 +267,34 @@ export default function Reports() {
         setEndDate(now);
     };
     
-    // ปรับปรุงฟังก์ชัน calculateDaysBetween ให้รับ null ได้
+    // ปรับปรุงฟังก์ชัน calculateDaysBetween และการจัดการวันที่
+
     const calculateDaysBetween = (start: Date | null, end: Date | null) => {
         if (!start || !end) return 0;
         
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // คำนวณจำนวนวันโดยไม่สนใจเวลา
+        const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        
+        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 เพื่อรวมวันสุดท้าย
+        
         return diffDays;
     };
+
     // ตรวจสอบเมื่อ startDate หรือ endDate เปลี่ยน (กรณีเลือก custom)
     useEffect(() => {
         if (timeRange === 'custom' && startDate && endDate) {
             const days = calculateDaysBetween(startDate, endDate);
             setDaysToFetch(days);
             
-            // ทำให้เกิดการ refetch ข้อมูลโดยอัปเดต query key
             if (selectedDevice?.mac_id) {
                 queryClient.invalidateQueries({ 
                     queryKey: ['historicalDust', selectedDevice.mac_id]
                 });
             }
             
-            // เพิ่ม log เพื่อ debug
-            console.log(`Date range changed: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}, days: ${days}`);
+            console.log(`Custom date range: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}, days: ${days}`);
         }
     }, [startDate, endDate, timeRange, selectedDevice?.mac_id, queryClient]);
 

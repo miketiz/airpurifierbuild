@@ -4,7 +4,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, #39394f 0%, #1f1f2e 100%);
+    background: linear-gradient(135deg, #e3e3ea 0%, #cacad8 100%);
     width: 100%;
     height: 100%;
     display: flex;
