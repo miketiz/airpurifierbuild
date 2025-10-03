@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+
+// เพิ่ม interfaces สำหรับ type safety
+interface FastAPIResponse {
+    status: number;
+    message: string;
+    data?: {
+        user_id: number | string;
+        dust: number | string;
+        notification: boolean;
+    };
+}
+
+interface ErrorResponse {
+    message?: string;
+    detail?: string;
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -7,20 +23,17 @@ export async function GET(request: NextRequest) {
         const userId = searchParams.get('userId');
 
         if (!userId) {
-            return NextResponse.json(
-                { 
-                    success: false, 
-                    error: 'Missing userId parameter',
-                    data: null 
-                }, 
-                { status: 400 }
-            );
+            return NextResponse.json({
+                success: false,
+                error: "userId parameter is required"
+            }, { status: 400 });
         }
 
         console.log(`Fetching settings for user: ${userId}`);
 
-        const response = await axios.get(
-            `https://fastapi.mm-air.online/notification/setting/${userId}`,
+        // ใช้ generic type สำหรับ axios response
+        const response = await axios.get<FastAPIResponse>(
+            `https://fastapi.mm-air.online/user/notification_get?user_id=${userId}`,
             {
                 timeout: 10000,
                 headers: {
@@ -29,73 +42,75 @@ export async function GET(request: NextRequest) {
             }
         );
 
-        console.log("GET API response:", response.data);
+        console.log("FastAPI response:", response.data);
 
-        // ตรวจสอบ status code จาก FastAPI
-        if (response.data.status === 0) {
-            // ผู้ใช้ไม่พบ - ส่งค่าเริ่มต้น
-            console.log("User not found, returning default settings");
-            return NextResponse.json({
-                success: true,
-                message: 'User not found, using default settings',
-                data: {
-                    userId: parseInt(userId),
-                    dustThreshold: 25, // ค่าเริ่มต้น
-                    isEnabled: false   // ค่าเริ่มต้น
-                },
-                isDefault: true // แฟล็กบอกว่าเป็นค่าเริ่มต้น
-            });
-        }
-
-        // ผู้ใช้พบ - แปลงข้อมูล
-        if (response.data.status === 1 && response.data.data) {
-            const apiData = response.data.data;
-            const transformedData = {
-                userId: apiData.user_id,
-                dustThreshold: Number(apiData.dust) || 25,
-                isEnabled: Boolean(apiData.notification)
+        // ตรวจสอบ response structure ตาม API ที่ให้มา
+        if (response.data?.status === 1 && response.data?.data) {
+            // แปลงข้อมูลให้ตรงกับ frontend
+            const settings = {
+                dustThreshold: parseInt(String(response.data.data.dust)) || 25,
+                isEnabled: response.data.data.notification || false
             };
 
             return NextResponse.json({
                 success: true,
-                message: 'Settings retrieved successfully',
-                data: transformedData,
-                isDefault: false
+                data: settings,
+                message: response.data.message || "Settings retrieved successfully"
             });
+        } else {
+            // API ส่งกลับ status ไม่เป็น 1
+            return NextResponse.json({
+                success: false,
+                data: null,
+                error: "Invalid response from FastAPI",
+                message: response.data?.message || "Unknown error"
+            }, { status: 400 });
         }
-
-        // กรณีอื่นๆ ที่ไม่คาดคิด
-        console.warn("Unexpected API response structure:", response.data);
-        return NextResponse.json({
-            success: true,
-            message: 'Unexpected response, using default settings',
-            data: {
-                userId: parseInt(userId),
-                dustThreshold: 25,
-                isEnabled: false
-            },
-            isDefault: true
-        });
 
     } catch (error) {
         console.error("Error retrieving notification settings:", error);
 
-        // ส่งค่าเริ่มต้นแทนการ error
-        const { searchParams } = new URL(request.url);
-        const userId = searchParams.get('userId');
+        // ใช้ type guard แทน any
+        if (error instanceof AxiosError) {
+            // จัดการ 404 - ไม่พบข้อมูลการตั้งค่า
+            if (error.response?.status === 404) {
+                return NextResponse.json({
+                    success: false,
+                    data: null,
+                    error: "Settings not found for this user (404)",
+                    message: "No settings configured yet"
+                }, { status: 404 });
+            }
 
+            // จัดการ error อื่นๆ
+            const statusCode = error.response?.status || 500;
+            const errorData = error.response?.data as ErrorResponse;
+            const errorMessage = errorData?.message || errorData?.detail || error.message || "Unknown error";
+
+            return NextResponse.json({
+                success: false,
+                data: null,
+                error: `Failed to retrieve settings: ${errorMessage}`,
+                statusCode: statusCode
+            }, { status: statusCode });
+        }
+
+        // จัดการ error ประเภทอื่น
+        if (error instanceof Error) {
+            return NextResponse.json({
+                success: false,
+                data: null,
+                error: `Network error: ${error.message}`,
+                statusCode: 500
+            }, { status: 500 });
+        }
+
+        // Fallback สำหรับ error ที่ไม่ทราบประเภท
         return NextResponse.json({
-            success: true,
-            message: 'Error occurred, using default settings',
-            data: {
-                userId: userId ? parseInt(userId) : 1,
-                dustThreshold: 25,
-                isEnabled: false
-            },
-            isDefault: true,
-            error: process.env.NODE_ENV === 'development' ? 
-                (error instanceof Error ? error.message : String(error)) : 
-                undefined
-        });
+            success: false,
+            data: null,
+            error: "An unknown error occurred",
+            statusCode: 500
+        }, { status: 500 });
     }
 }

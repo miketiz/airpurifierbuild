@@ -27,23 +27,7 @@ import { Device, HistoricalDustData } from "../types/dashboard";
 import { convertDevicesData } from "../utils/dashboardUtils";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import  usePDFExporter  from "../components/PDFExporter";
-
-// // Register autoTable with jsPDF
-// declare module 'jspdf' {
-//     interface jsPDF {
-//         autoTable: typeof autoTable;
-//         lastAutoTable?: {
-//             finalY: number;
-//         };
-//     }
-// }
-
-// // Type-safe registration of autoTable plugin
-// interface jsPDFWithAutoTable {
-//     autoTable: typeof autoTable;
-// }
-// (jsPDF.prototype as jsPDFWithAutoTable).autoTable = autoTable;
+import usePDFExporter from "../components/PDFExporter";
 
 ChartJS.register(
     CategoryScale,
@@ -117,7 +101,7 @@ export default function Reports() {
 
         if (devicesData?.success && devicesData.data) {
             const devices = convertDevicesData(devicesData);
-            
+
             setDeviceList(devices);
             setHasDevice(devices.length > 0);
 
@@ -139,32 +123,32 @@ export default function Reports() {
 
         if (historicalData?.status === 1 && historicalData.data && Array.isArray(historicalData.data) && historicalData.data.length > 0) {
             // เรียงลำดับข้อมูลตามเวลา
-            const sortedData = [...historicalData.data].sort((a: HistoricalDustData, b: HistoricalDustData) => 
+            const sortedData = [...historicalData.data].sort((a: HistoricalDustData, b: HistoricalDustData) =>
                 new Date(a.time).getTime() - new Date(b.time).getTime()
             );
-            
+
             // จัดกลุ่มข้อมูลตามวันเพื่อป้องกันการแสดงวันที่ซ้ำกัน
             const groupedByDay = new Map<string, GroupedDustData>();
-            
+
             sortedData.forEach((item: HistoricalDustData) => {
                 // ตัดเวลาออกเพื่อใช้เฉพาะวันที่เป็นตัวจัดกลุ่ม
                 const date = new Date(item.time);
-                const dateKey = date.toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'numeric', 
-                    day: 'numeric' 
+                const dateKey = date.toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'numeric',
+                    day: 'numeric'
                 });
-                
+
                 // เพิ่ม nullish coalescing operator เพื่อให้ค่าเป็น 0 หากไม่มีข้อมูล
                 const pm2Value = item?.PM2 ?? 0;
                 const tempValue = item?.temperature ?? 0;
                 const humidityValue = item?.humidity ?? 0;
-                
+
                 if (!groupedByDay.has(dateKey)) {
                     groupedByDay.set(dateKey, {
                         date: date,
-                        displayDate: date.toLocaleDateString('th-TH', { 
-                            month: 'short', 
+                        displayDate: date.toLocaleDateString('th-TH', {
+                            month: 'short',
                             day: 'numeric',
                             weekday: 'short'
                         }),
@@ -181,21 +165,21 @@ export default function Reports() {
                     current.count += 1;
                 }
             });
-            
+
             // คำนวณค่าเฉลี่ยและสร้างอาร์เรย์ข้อมูลใหม่
             const groupedData: GroupedDustData[] = Array.from(groupedByDay.values());
-            
+
             // จัดเรียงตามวันที่อีกครั้ง
             groupedData.sort((a, b) => a.date.getTime() - b.date.getTime());
-            
+
             // จำกัดข้อมูลตาม daysToFetch
             const limitedData = daysToFetch > 0 && daysToFetch < groupedData.length
                 ? groupedData.slice(-daysToFetch)
                 : groupedData;
-            
+
             // Log ข้อมูล
             console.log(`Showing ${limitedData.length} days of data (after grouping) out of ${groupedData.length} available days`);
-            
+
             // แปลงข้อมูลสำหรับกราฟจากข้อมูลที่จัดกลุ่มแล้ว
             const times = limitedData.map(item => item.displayDate);
             const pm25Values = limitedData.map(item => item.PM2 / item.count);
@@ -241,11 +225,11 @@ export default function Reports() {
     // ฟังก์ชันสำหรับเปลี่ยนช่วงเวลา
     const handleTimeRangeChange = (range: '7days' | '14days' | '30days' | 'custom') => {
         setTimeRange(range);
-        
+
         const now = new Date();
         let newStartDate: Date = new Date(); // กำหนดค่าเริ่มต้น
-        
-        switch(range) {
+
+        switch (range) {
             case '7days':
                 newStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
                 setDaysToFetch(7);
@@ -262,23 +246,23 @@ export default function Reports() {
                 // ในกรณี custom ให้ใช้ startDate และ endDate ที่ผู้ใช้เลือก
                 return;
         }
-        
+
         setStartDate(newStartDate);
         setEndDate(now);
     };
-    
+
     // ปรับปรุงฟังก์ชัน calculateDaysBetween และการจัดการวันที่
 
     const calculateDaysBetween = (start: Date | null, end: Date | null) => {
         if (!start || !end) return 0;
-        
+
         // คำนวณจำนวนวันโดยไม่สนใจเวลา
         const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
         const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-        
+
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 เพื่อรวมวันสุดท้าย
-        
+
         return diffDays;
     };
 
@@ -287,13 +271,13 @@ export default function Reports() {
         if (timeRange === 'custom' && startDate && endDate) {
             const days = calculateDaysBetween(startDate, endDate);
             setDaysToFetch(days);
-            
+
             if (selectedDevice?.mac_id) {
-                queryClient.invalidateQueries({ 
+                queryClient.invalidateQueries({
                     queryKey: ['historicalDust', selectedDevice.mac_id]
                 });
             }
-            
+
             console.log(`Custom date range: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}, days: ${days}`);
         }
     }, [startDate, endDate, timeRange, selectedDevice?.mac_id, queryClient]);
@@ -301,7 +285,7 @@ export default function Reports() {
     // เพิ่มการ force refetch ข้อมูลเมื่อเปลี่ยน timeRange
     useEffect(() => {
         if (selectedDevice?.mac_id) {
-            queryClient.invalidateQueries({ 
+            queryClient.invalidateQueries({
                 queryKey: ['historicalDust', selectedDevice.mac_id]
             });
         }
@@ -320,7 +304,7 @@ export default function Reports() {
                         <div className="report-header">
                             <h1>รายงานและสถิติ</h1>
                             <div className="report-actions">
-                                <button 
+                                <button
                                     className="export-btn"
                                     onClick={pdfExporter.exportToPDF}
                                 >
@@ -335,38 +319,38 @@ export default function Reports() {
                             deviceList={deviceList}
                             selectedDevice={selectedDevice}
                             onDeviceSelect={setSelectedDevice}
-                            onOfflineDeviceSelect={() => {}}
+                            onOfflineDeviceSelect={() => { }}
                         />
-                        
+
                         {/* เพิ่มส่วนเลือกช่วงเวลา */}
                         <div className="time-range-selector">
                             <div className="time-range-buttons">
-                                <button 
+                                <button
                                     className={`time-btn ${timeRange === '7days' ? 'active' : ''}`}
                                     onClick={() => handleTimeRangeChange('7days')}
                                 >
                                     7 วัน
                                 </button>
-                                <button 
+                                <button
                                     className={`time-btn ${timeRange === '14days' ? 'active' : ''}`}
                                     onClick={() => handleTimeRangeChange('14days')}
                                 >
                                     14 วัน
                                 </button>
-                                <button 
+                                <button
                                     className={`time-btn ${timeRange === '30days' ? 'active' : ''}`}
                                     onClick={() => handleTimeRangeChange('30days')}
                                 >
                                     30 วัน
                                 </button>
-                                <button 
+                                <button
                                     className={`time-btn ${timeRange === 'custom' ? 'active' : ''}`}
                                     onClick={() => handleTimeRangeChange('custom')}
                                 >
                                     กำหนดเอง
                                 </button>
                             </div>
-                            
+
                             {timeRange === 'custom' && (
                                 <div className="custom-date-picker">
                                     <div className="date-picker-container">
@@ -415,12 +399,12 @@ export default function Reports() {
                                         </div>
                                     </div>
 
-                                    <button 
+                                    <button
                                         className="refresh-btn"
                                         onClick={() => {
                                             if (selectedDevice?.mac_id) {
                                                 // ทำให้เกิดการ refetch ข้อมูลโดยอัปเดต query key
-                                                queryClient.invalidateQueries({ 
+                                                queryClient.invalidateQueries({
                                                     queryKey: ['historicalDust', selectedDevice.mac_id]
                                                 });
                                                 console.log('Manually refreshing data...');
@@ -431,7 +415,7 @@ export default function Reports() {
                                     </button>
                                 </div>
                             )}
-                            
+
                             {/* แสดงช่วงวันที่ที่เลือก */}
                             <div className="selected-date-range">
                                 <span>
@@ -472,7 +456,7 @@ export default function Reports() {
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* ส่งค่า daysToFetch ไปให้ ChartSection */}
                         <ChartSection
                             selectedDevice={selectedDevice}

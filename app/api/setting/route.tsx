@@ -1,80 +1,189 @@
-import { NextResponse } from "next/server";
-import axios from "axios";
+import { NextRequest, NextResponse } from "next/server";
+import axios, { AxiosError } from "axios";
 
-;;
-export async function POST(request: Request) {
+// เพิ่ม interfaces
+interface FastAPIResponse {
+    status: number;
+    message: string;
+    data?: {
+        user_id: number | string;
+        dust: number | string;
+        notification: boolean;
+    };
+}
+
+interface ErrorResponse {
+    message?: string;
+    detail?: string;
+}
+
+export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { userId, dustThreshold, isNotificationEnabled } = body;
 
-        if (!userId) {
-            return NextResponse.json(
-                { error: "User ID is required" },
-                { status: 400 }
-            );
+        if (!userId || dustThreshold === undefined || isNotificationEnabled === undefined) {
+            return NextResponse.json({
+                success: false,
+                error: "Missing required parameters"
+            }, { status: 400 });
         }
 
-        console.log("Sending to API:", { userId, dustThreshold, isNotificationEnabled });
+        console.log("Saving settings:", { userId, dustThreshold, isNotificationEnabled });
 
-        // แก้ไขชื่อฟิลด์ให้ตรงกับที่ API ต้องการ
-        const response = await axios.post('https://fastapi.mm-air.online/user/notification_post', {
-            user_id: userId,                // ชื่อฟิลด์ตรงตาม API
-            dust: String(dustThreshold),    // เปลี่ยนเป็น dust และแปลงเป็น string ตาม API spec
-            notification: isNotificationEnabled  // เปลี่ยนเป็น notification ตาม API spec
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        console.log("API response:", response.data);
-
-        return NextResponse.json(
+        // ใช้ generic type สำหรับ axios
+        const response = await axios.post<FastAPIResponse>(
+            'https://fastapi.mm-air.online/user/notification_post',
             {
-                success: true,
-                message: "Notification settings updated successfully",
-                data: response.data,
+                user_id: String(userId),
+                dust: String(dustThreshold),
+                notification: isNotificationEnabled
             },
-            { status: 200 }
+            {
+                timeout: 10000,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
         );
-    } catch (error) {
-        console.error("Error updating notification settings:", error);
 
-        if (axios.isAxiosError(error)) {
-            console.log("API error response:", error.response?.data);
-            return NextResponse.json(
-                {
-                    error: "Failed to update notification settings",
-                    details: error.response?.data || error.message
-                },
-                { status: error.response?.status || 500 }
-            );
+        console.log("FastAPI save response:", response.data);
+
+        if (response.data?.status === 1) {
+            return NextResponse.json({
+                success: true,
+                message: response.data.message || "Settings saved successfully",
+                data: {
+                    userId: userId,
+                    dustThreshold,
+                    isNotificationEnabled
+                }
+            });
+        } else {
+            return NextResponse.json({
+                success: false,
+                error: "Failed to save settings",
+                message: response.data?.message || "Unknown error"
+            }, { status: 400 });
         }
 
-        return NextResponse.json(
-            { error: "Failed to update notification settings" },
-            { status: 500 }
-        );
+    } catch (error) {
+        console.error("Error saving notification settings:", error);
+
+        // ใช้ type guard แทน any
+        if (error instanceof AxiosError) {
+            const statusCode = error.response?.status || 500;
+            const errorData = error.response?.data as ErrorResponse;
+            const errorMessage = errorData?.message || errorData?.detail || error.message || "Unknown error";
+
+            return NextResponse.json({
+                success: false,
+                error: `Failed to save settings: ${errorMessage}`,
+                statusCode: statusCode
+            }, { status: statusCode });
+        }
+
+        if (error instanceof Error) {
+            return NextResponse.json({
+                success: false,
+                error: `Network error: ${error.message}`,
+                statusCode: 500
+            }, { status: 500 });
+        }
+
+        return NextResponse.json({
+            success: false,
+            error: "An unknown error occurred",
+            statusCode: 500
+        }, { status: 500 });
     }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
 
         if (!userId) {
-            return NextResponse.json(
-                { error: "User ID is required" },
-                { status: 400 }
-            );
+            return NextResponse.json({
+                success: false,
+                error: "userId parameter is required"
+            }, { status: 400 });
         }
 
-        console.log("Fetching settings for userId:", userId);
-    } catch (error) {
-        console.error("Error fetching settings:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch settings" },
-            { status: 500 }
+        console.log(`Fetching settings for user: ${userId}`);
+
+        const response = await axios.get<FastAPIResponse>(
+            `https://fastapi.mm-air.online/user/notification_get?user_id=${userId}`,
+            {
+                timeout: 10000,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
         );
+
+        console.log("FastAPI response:", response.data);
+
+        if (response.data?.status === 1 && response.data?.data) {
+            const settings = {
+                dustThreshold: parseInt(String(response.data.data.dust)) || 25,
+                isEnabled: response.data.data.notification || false
+            };
+
+            return NextResponse.json({
+                success: true,
+                data: settings,
+                message: response.data.message || "Settings retrieved successfully"
+            });
+        } else {
+            return NextResponse.json({
+                success: false,
+                data: null,
+                error: "Invalid response from FastAPI",
+                message: response.data?.message || "Unknown error"
+            }, { status: 400 });
+        }
+
+    } catch (error) {
+        console.error("Error retrieving notification settings:", error);
+
+        if (error instanceof AxiosError) {
+            if (error.response?.status === 404) {
+                return NextResponse.json({
+                    success: false,
+                    data: null,
+                    error: "Settings not found for this user (404)",
+                    message: "No settings configured yet"
+                }, { status: 404 });
+            }
+
+            const statusCode = error.response?.status || 500;
+            const errorData = error.response?.data as ErrorResponse;
+            const errorMessage = errorData?.message || errorData?.detail || error.message || "Unknown error";
+
+            return NextResponse.json({
+                success: false,
+                data: null,
+                error: `Failed to retrieve settings: ${errorMessage}`,
+                statusCode: statusCode
+            }, { status: statusCode });
+        }
+
+        if (error instanceof Error) {
+            return NextResponse.json({
+                success: false,
+                data: null,
+                error: `Network error: ${error.message}`,
+                statusCode: 500
+            }, { status: 500 });
+        }
+
+        return NextResponse.json({
+            success: false,
+            data: null,
+            error: "An unknown error occurred",
+            statusCode: 500
+        }, { status: 500 });
     }
 }

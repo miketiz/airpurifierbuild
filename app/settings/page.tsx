@@ -8,62 +8,81 @@ import { useTheme } from "../contexts/ThemeContext";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 
-;
 export default function Settings() {
     const { darkMode, toggleDarkMode } = useTheme();
     const { data: session } = useSession();
     const [dustThreshold, setDustThreshold] = useState(25);
     const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
-    const [userId, setUserId] = useState("1"); // กำหนดค่าเริ่มต้นเพื่อไม่ให้เกิด error
     const [isLoading, setIsLoading] = useState(true);
 
-    // ดึงข้อมูลเมื่อโหลดหน้า (ไม่ต้องรอ session)
+    // ดึงข้อมูลการตั้งค่าเมื่อโหลดหน้า
     useEffect(() => {
         const fetchUserSettings = async () => {
             try {
-                // ถ้ามี session และมี user.id ให้ใช้ค่านั้น
-                if (session?.user?.id) {
-                    setUserId(String(session.user.id));
-                } else {
-                    console.log("No session or user ID found, using default userId:", userId);
-                }
+                setIsLoading(true);
                 
-                // GET ข้อมูลโดยใช้ userId ที่มีอยู่ (ค่าเริ่มต้นหรือจาก session)
-                const response = await fetch(`/api/setting/GET?userId=${userId}`, {
+                const currentUserId = session?.user?.id ? String(session.user.id) : "1";
+                
+                console.log("Fetching settings for user:", currentUserId);
+                
+                const response = await fetch(`/api/setting/GET?userId=${currentUserId}`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 });
                 
-                if (response.ok) {
-                    const responseData = await response.json();
-                    console.log("Settings API response:", responseData);
+                const responseData = await response.json();
+                console.log("Settings API response:", responseData);
+                
+                if (response.ok && responseData.success && responseData.data) {
+                    // มีข้อมูลการตั้งค่า - ใช้ค่าที่บันทึกไว้
+                    setDustThreshold(responseData.data.dustThreshold || 25);
+                    setIsNotificationEnabled(responseData.data.isEnabled || false);
                     
-                    // อัพเดต state ด้วยข้อมูลที่ได้รับ
-                    if (responseData?.data) {
-                        setDustThreshold(responseData.data.dustThreshold || 25);
-                        setIsNotificationEnabled(responseData.data.isEnabled || false);
-                    }
+                    console.log("✅ Loaded saved settings:", {
+                        dustThreshold: responseData.data.dustThreshold || 25,
+                        isNotificationEnabled: responseData.data.isEnabled || false
+                    });
+                    
+                    toast.success(`โหลดการตั้งค่าสำเร็จ - ค่าฝุ่น: ${responseData.data.dustThreshold || 25} µg/m³`, {
+                        duration: 2000
+                    });
+                    
+                } else if (response.status === 404 || responseData.error?.includes('404')) {
+                    // ไม่พบข้อมูลการตั้งค่า - ใช้ค่าเริ่มต้น
+                    console.log("ℹ️ No settings found, using default values");
+                    setDustThreshold(25);
+                    setIsNotificationEnabled(false);
+                    toast("ยังไม่มีการตั้งค่า จะใช้ค่าเริ่มต้น", {
+                        duration: 2000,
+                        icon: "ℹ️"
+                    });
                 } else {
-                    console.error("Failed to fetch user settings");
+                    // เกิดข้อผิดพลาดอื่นๆ
+                    console.error("❌ Error fetching settings:", responseData.error);
+                    setDustThreshold(25);
+                    setIsNotificationEnabled(false);
+                    toast.error("ไม่สามารถโหลดการตั้งค่าได้ ใช้ค่าเริ่มต้น", {
+                        duration: 3000
+                    });
                 }
+                
             } catch (error) {
-                console.error("Error fetching settings:", error);
+                console.error("❌ Network error fetching settings:", error);
+                
+                setDustThreshold(25);
+                setIsNotificationEnabled(false);
+                toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ ใช้ค่าเริ่มต้น", {
+                    duration: 3000
+                });
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchUserSettings();
-    }, [session, userId]); // เพิ่ม dependencies ที่จำเป็น
-
-    // การทำงานเมื่อ session มีการเปลี่ยนแปลง (เช่น login หรือ logout)
-    useEffect(() => {
-        if (session?.user?.id) {
-            setUserId(String(session.user.id));
-        }
-    }, [session]); // ไม่จำเป็นต้องมี userId เป็น dependency เพราะเราต้องการให้ทำงานเฉพาะเมื่อ session เปลี่ยน
+    }, [session?.user?.id]); // ใช้เฉพาะ session?.user?.id เป็น dependency
 
     const handleThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setDustThreshold(Number(e.target.value));
@@ -75,38 +94,61 @@ export default function Settings() {
 
     const saveThreshold = async () => {
         try {
+            const currentUserId = session?.user?.id ? String(session.user.id) : "1";
+            
+            console.log("💾 Saving settings:", {
+                userId: currentUserId,
+                dustThreshold,
+                isNotificationEnabled
+            });
+            
+            toast.loading("กำลังบันทึก...", { id: "save-settings" });
+            
             const response = await fetch('/api/setting', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ 
-                    userId, 
+                    userId: currentUserId, 
                     dustThreshold,  
                     isNotificationEnabled 
                 }),
             });
             
-            if (response.ok) {
-                toast.success('บันทึกการตั้งค่าสำเร็จ');
+            const responseData = await response.json();
+            
+            if (response.ok && responseData.success) {
+                console.log("✅ Settings saved successfully");
+                toast.success(`บันทึกสำเร็จ - ค่าฝุ่น: ${dustThreshold} µg/m³`, { 
+                    id: "save-settings",
+                    duration: 3000
+                });
             } else {
-                const errorData = await response.json();
-                toast.error(`เกิดข้อผิดพลาด: ${errorData.error || 'ไม่สามารถบันทึกการตั้งค่าได้'}`);
+                console.error("❌ Failed to save settings:", responseData);
+                toast.error(`เกิดข้อผิดพลาด: ${responseData.error || 'ไม่สามารถบันทึกการตั้งค่าได้'}`, {
+                    id: "save-settings"
+                });
             }
         } catch (error) {
-            console.error("Error saving settings:", error);
-            toast.error('เกิดข้อผิดพลาดในการบันทึกการตั้งค่า');
+            console.error("❌ Error saving settings:", error);
+            toast.error('เกิดข้อผิดพลาดในการบันทึกการตั้งค่า', {
+                id: "save-settings"
+            });
         }
     };
 
     // แสดง loading indicator หากกำลังโหลดข้อมูล
     if (isLoading) {
         return (
-            <div className="dashboard-container">
+            <div className={`dashboard-container ${darkMode ? 'dark' : ''}`}>
                 <Sidebar />
                 <div className="main-content">
                     <div className="settings-container fade-in">
-                        <h1 className="settings-title">กำลังโหลดข้อมูล...</h1>
+                        <h1 className="settings-title">กำลังโหลดการตั้งค่า...</h1>
+                        <div className="loading-spinner">
+                            <div className="spinner"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -114,7 +156,7 @@ export default function Settings() {
     }
 
     return (
-        <div className="dashboard-container">
+        <div className={`dashboard-container ${darkMode ? 'dark' : ''}`}>
             <Sidebar />
             <div className="main-content">
                 <div className="settings-container fade-in">
@@ -149,7 +191,9 @@ export default function Settings() {
                                     <span className="threshold-value">{dustThreshold}</span>
                                 </div>
                                 <div className="settings-item">
-                                    <button className="save-threshold-btn" onClick={saveThreshold}>บันทึกการตั้งค่า</button>
+                                    <button className="save-threshold-btn" onClick={saveThreshold}>
+                                        บันทึกการตั้งค่า
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -171,7 +215,6 @@ export default function Settings() {
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
